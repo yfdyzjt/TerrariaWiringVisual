@@ -1,0 +1,3 @@
+# TerrariaWiringVisual
+
+Add customizable delays and light effects to the Wiring runtime to visualize the Terraria Wiring runtime and make Wiring look better when it runs. Based on MechScope, if you need a mod to assist in testing Wirings, visit MechScope.
