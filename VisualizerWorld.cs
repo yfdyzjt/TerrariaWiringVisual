@@ -7,6 +7,8 @@ using System.Reflection;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.GameContent;
+using Terraria.GameContent.UI;
+using Terraria.ID;
 using Terraria.ModLoader;
 
 namespace TerrariaWiringVisual
@@ -20,7 +22,7 @@ namespace TerrariaWiringVisual
             public bool green;
             public bool yellow;
 
-            public int numWires()
+            public int NumWires()
             {
                 int num = 0;
                 if (red) num++;
@@ -152,6 +154,22 @@ namespace TerrariaWiringVisual
         private void DrawWireSegments()
         {
             Main.spriteBatch.End();
+            Main.spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.AlphaBlend);
+
+            Rectangle screenRect = GetScreenRect();
+
+            foreach (var item in WireHighlight)
+            {
+                if (!screenRect.Contains(new Point(item.Key.X, item.Key.Y))) continue;
+
+                DrawWires(item.Key);
+            }
+
+            Main.spriteBatch.End();
+            Main.spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.AlphaBlend);
+
+            /*
+            Main.spriteBatch.End();
             Main.spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.Additive);
 
             Rectangle screenRect = GetScreenRect();
@@ -163,7 +181,7 @@ namespace TerrariaWiringVisual
                 DrawTileBorder(item.Key, Color.White);
 
                 int startY = 2;
-                int height = (int)Math.Ceiling(14f / item.Value.numWires());
+                int height = (int)Math.Ceiling(14f / item.Value.NumWires());
 
                 if (item.Value.red)
                 {
@@ -188,6 +206,7 @@ namespace TerrariaWiringVisual
 
             Main.spriteBatch.End();
             Main.spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.AlphaBlend);
+            */
         }
 
         private void DrawTileMarker(Point16 tile, ColoredMark mark)
@@ -255,13 +274,25 @@ namespace TerrariaWiringVisual
             return new Rectangle(iterX1, iterY1, iterX2 - iterX1, iterY2 - iterY1);
         }
 
+        private Vector2 WorldVector2ToScreen(Vector2 vector2)
+        {
+            Vector2 newVector2 = new(
+                (float)Math.Floor((vector2.X - Main.screenPosition.X) * Main.GameViewMatrix.Zoom.X + 0.5f * Main.screenWidth * (1 - Main.GameViewMatrix.Zoom.X)),
+                (float)Math.Floor((vector2.Y - Main.screenPosition.Y) * Main.GameViewMatrix.Zoom.Y + 0.5f * Main.screenHeight * (1 - Main.GameViewMatrix.Zoom.Y)));
+
+            if (Main.LocalPlayer.gravDir == -1)
+                newVector2.Y = Main.screenHeight - newVector2.Y;
+
+            return newVector2;
+        }
+
         private Rectangle WorldRectToScreen(Rectangle rect)
         {
-            Rectangle newRect = new Rectangle(
-                (int)((rect.X - Main.screenPosition.X) * Main.GameViewMatrix.Zoom.X + 0.5f * Main.screenWidth * (1 - Main.GameViewMatrix.Zoom.X)),
-                (int)((rect.Y - Main.screenPosition.Y) * Main.GameViewMatrix.Zoom.Y + 0.5f * Main.screenHeight * (1 - Main.GameViewMatrix.Zoom.Y)),
-                (int)(rect.Width * Main.GameViewMatrix.Zoom.X),
-                (int)(rect.Height * Main.GameViewMatrix.Zoom.Y)
+            Rectangle newRect = new(
+                (int)Math.Floor((rect.X - Main.screenPosition.X) * Main.GameViewMatrix.Zoom.X + 0.5f * Main.screenWidth * (1 - Main.GameViewMatrix.Zoom.X)),
+                (int)Math.Floor((rect.Y - Main.screenPosition.Y) * Main.GameViewMatrix.Zoom.Y + 0.5f * Main.screenHeight * (1 - Main.GameViewMatrix.Zoom.Y)),
+                (int)Math.Floor(rect.Width * Main.GameViewMatrix.Zoom.X),
+                (int)Math.Floor(rect.Height * Main.GameViewMatrix.Zoom.Y)
             );
 
             if (Main.LocalPlayer.gravDir == -1)
@@ -383,6 +414,425 @@ namespace TerrariaWiringVisual
                 {
                     Point16 point = new Point16(Wiring._outPumpX[i], Wiring._outPumpY[i]);
                     MarkCache[point] = new ColoredMark(i.ToString(), Color.Green);
+                }
+            }
+        }
+
+        protected void DrawWires(Point16 tileLoc)
+        {
+            Rectangle wireRect = new Rectangle(0, 0, 16, 16);
+            Vector2 origin = Vector2.Zero;
+            Vector2 positionOffset = Vector2.Zero;
+
+            float scale = Main.GameViewMatrix.Zoom.X;
+
+            int redWireVisibility = 0;
+            int blueWireVisibility = 0;
+            int greenWireVisibility = 0;
+            int yellowWireVisibility = 0;
+
+            bool hasLeftConnection = false;
+            bool hasRightConnection = false;
+            bool hasTopConnection = false;
+            bool hasBottomConnection = false;
+            float wireCount = 0f;
+
+            int x = tileLoc.X;
+            int y = tileLoc.Y;
+
+            Tile tile = Main.tile[x, y];
+            WireSegment wireCur;
+
+            if (!WireHighlight.TryGetValue(new Point16(x, y), out wireCur)) return;
+
+            bool hasWireTop, hasWireBottom, hasWireLeft, hasWireRight;
+            WireSegment wireTop, wireBottom, wireLeft, wireRight;
+
+            hasWireTop = WireHighlight.TryGetValue(new Point16(x, y - 1), out wireTop);
+            hasWireBottom = WireHighlight.TryGetValue(new Point16(x, y + 1), out wireBottom);
+            hasWireLeft = WireHighlight.TryGetValue(new Point16(x - 1, y), out wireLeft);
+            hasWireRight = WireHighlight.TryGetValue(new Point16(x + 1, y), out wireRight);
+
+            int textureYOffset = 0;
+            if (tile.HasTile)
+            {
+                if (tile.TileType == 424)
+                {
+                    switch (tile.TileFrameX / 18)
+                    {
+                        case 0:
+                            textureYOffset += 72;
+                            break;
+                        case 1:
+                            textureYOffset += 144;
+                            break;
+                        case 2:
+                            textureYOffset += 216;
+                            break;
+                    }
+                }
+                else if (tile.TileType == 445)
+                {
+                    textureYOffset += 72;
+                }
+            }
+            if (wireCur.red)
+            {
+                wireCount += 1f;
+                int redWireTextureX = 0;
+                if (hasWireTop && wireTop.red)
+                {
+                    redWireTextureX += 18;
+                    hasTopConnection = true;
+                }
+                if (hasWireRight && wireRight.red)
+                {
+                    redWireTextureX += 36;
+                    hasRightConnection = true;
+                }
+                if (hasWireBottom && wireBottom.red)
+                {
+                    redWireTextureX += 72;
+                    hasBottomConnection = true;
+                }
+                if (hasWireLeft && wireLeft.red)
+                {
+                    redWireTextureX += 144;
+                    hasLeftConnection = true;
+                }
+                wireRect.Y = textureYOffset;
+                wireRect.X = redWireTextureX;
+                Color redWireColor = Lighting.GetColor(x, y);
+                switch (redWireVisibility)
+                {
+                    case 0:
+                        redWireColor = Color.White;
+                        break;
+                    case 2:
+                        redWireColor *= 0.5f;
+                        break;
+                    case 3:
+                        redWireColor = Color.Transparent;
+                        break;
+                }
+                if (redWireColor == Color.Transparent)
+                {
+                    wireCount -= 1f;
+                }
+                else
+                {
+                    Main.spriteBatch.Draw(TextureAssets.WireNew.Value, WorldVector2ToScreen(new Vector2(x * 16, y * 16) + positionOffset), new Rectangle?(wireRect), redWireColor, 0f, origin, scale, SpriteEffects.None, 0f);
+                }
+            }
+            if (wireCur.blue)
+            {
+                bool wireOverlap;
+                bool blueBottomConnection;
+                bool blueTopConnection;
+                bool blueLeftConnection;
+                bool blueRightConnection = blueLeftConnection = (blueTopConnection = (blueBottomConnection = (wireOverlap = false)));
+                wireCount += 1f;
+                int blueWireTextureX = 0;
+                if (hasWireTop && wireTop.blue)
+                {
+                    blueWireTextureX += 18;
+                    blueTopConnection = true;
+                    if (hasTopConnection)
+                    {
+                        wireOverlap = true;
+                    }
+                }
+                if (hasWireRight && wireRight.blue)
+                {
+                    blueWireTextureX += 36;
+                    blueRightConnection = true;
+                    if (hasRightConnection)
+                    {
+                        wireOverlap = true;
+                    }
+                }
+                if (hasWireBottom && wireBottom.blue)
+                {
+                    blueWireTextureX += 72;
+                    blueBottomConnection = true;
+                    if (hasBottomConnection)
+                    {
+                        wireOverlap = true;
+                    }
+                }
+                if (hasWireLeft && wireLeft.blue)
+                {
+                    blueWireTextureX += 144;
+                    blueLeftConnection = true;
+                    if (hasLeftConnection)
+                    {
+                        wireOverlap = true;
+                    }
+                }
+                if (wireCount > 1f)
+                {
+                    wireOverlap = true;
+                }
+                wireRect.Y = textureYOffset + 18;
+                wireRect.X = blueWireTextureX;
+                Color blueWireColor = Lighting.GetColor(x, y);
+                switch (blueWireVisibility)
+                {
+                    case 0:
+                        blueWireColor = Color.White;
+                        break;
+                    case 2:
+                        blueWireColor *= 0.5f;
+                        break;
+                    case 3:
+                        blueWireColor = Color.Transparent;
+                        break;
+                }
+                if (blueWireColor == Color.Transparent)
+                {
+                    wireCount -= 1f;
+                }
+                else
+                {
+                    Main.spriteBatch.Draw(TextureAssets.WireNew.Value, WorldVector2ToScreen(new Vector2(x * 16, y * 16) + positionOffset), new Rectangle?(wireRect), blueWireColor * (1f / wireCount), 0f, origin, scale, SpriteEffects.None, 0f);
+                    if (blueTopConnection)
+                    {
+                        if (wireOverlap && !hasTopConnection)
+                        {
+                            Main.spriteBatch.Draw(TextureAssets.WireNew.Value, WorldVector2ToScreen(new Vector2(x * 16, y * 16) + positionOffset), new Rectangle?(new Rectangle(18, wireRect.Y, 16, 6)), blueWireColor, 0f, origin, scale, SpriteEffects.None, 0f);
+                        }
+                        hasTopConnection = true;
+                    }
+                    if (blueBottomConnection)
+                    {
+                        if (wireOverlap && !hasBottomConnection)
+                        {
+                            Main.spriteBatch.Draw(TextureAssets.WireNew.Value, WorldVector2ToScreen(new Vector2(x * 16, y * 16) + positionOffset + new Vector2(0f, 10f)), new Rectangle?(new Rectangle(72, wireRect.Y + 10, 16, 6)), blueWireColor, 0f, origin, scale, SpriteEffects.None, 0f);
+                        }
+                        hasBottomConnection = true;
+                    }
+                    if (blueRightConnection)
+                    {
+                        if (wireOverlap && !hasRightConnection)
+                        {
+                            Main.spriteBatch.Draw(TextureAssets.WireNew.Value, WorldVector2ToScreen(new Vector2(x * 16, y * 16) + positionOffset + new Vector2(10f, 0f)), new Rectangle?(new Rectangle(46, wireRect.Y, 6, 16)), blueWireColor, 0f, origin, scale, SpriteEffects.None, 0f);
+                        }
+                        hasRightConnection = true;
+                    }
+                    if (blueLeftConnection)
+                    {
+                        if (wireOverlap && !hasLeftConnection)
+                        {
+                            Main.spriteBatch.Draw(TextureAssets.WireNew.Value, WorldVector2ToScreen(new Vector2(x * 16, y * 16) + positionOffset), new Rectangle?(new Rectangle(144, wireRect.Y, 6, 16)), blueWireColor, 0f, origin, scale, SpriteEffects.None, 0f);
+                        }
+                        hasLeftConnection = true;
+                    }
+                }
+            }
+            if (wireCur.green)
+            {
+                bool wireOverlap;
+                bool greenBottomConnection;
+                bool greenTopConnection;
+                bool greenLeftConnection;
+                bool greenRightConnection = greenLeftConnection = (greenTopConnection = (greenBottomConnection = (wireOverlap = false)));
+                wireCount += 1f;
+                int greenWireTextureX = 0;
+                if (hasWireTop && wireTop.green)
+                {
+                    greenWireTextureX += 18;
+                    greenTopConnection = true;
+                    if (hasTopConnection)
+                    {
+                        wireOverlap = true;
+                    }
+                }
+                if (hasWireRight && wireRight.green)
+                {
+                    greenWireTextureX += 36;
+                    greenRightConnection = true;
+                    if (hasRightConnection)
+                    {
+                        wireOverlap = true;
+                    }
+                }
+                if (hasWireBottom && wireBottom.green)
+                {
+                    greenWireTextureX += 72;
+                    greenBottomConnection = true;
+                    if (hasBottomConnection)
+                    {
+                        wireOverlap = true;
+                    }
+                }
+                if (hasWireLeft && wireLeft.green)
+                {
+                    greenWireTextureX += 144;
+                    greenLeftConnection = true;
+                    if (hasLeftConnection)
+                    {
+                        wireOverlap = true;
+                    }
+                }
+                if (wireCount > 1f)
+                {
+                    wireOverlap = true;
+                }
+                wireRect.Y = textureYOffset + 36;
+                wireRect.X = greenWireTextureX;
+                Color greenWireColor = Lighting.GetColor(x, y);
+                switch (greenWireVisibility)
+                {
+                    case 0:
+                        greenWireColor = Color.White;
+                        break;
+                    case 2:
+                        greenWireColor *= 0.5f;
+                        break;
+                    case 3:
+                        greenWireColor = Color.Transparent;
+                        break;
+                }
+                if (greenWireColor == Color.Transparent)
+                {
+                    wireCount -= 1f;
+                }
+                else
+                {
+                    Main.spriteBatch.Draw(TextureAssets.WireNew.Value, WorldVector2ToScreen(new Vector2(x * 16, y * 16) + positionOffset), new Rectangle?(wireRect), greenWireColor * (1f / wireCount), 0f, origin, scale, SpriteEffects.None, 0f);
+                    if (greenTopConnection)
+                    {
+                        if (wireOverlap && !hasTopConnection)
+                        {
+                            Main.spriteBatch.Draw(TextureAssets.WireNew.Value, WorldVector2ToScreen(new Vector2(x * 16, y * 16) + positionOffset), new Rectangle?(new Rectangle(18, wireRect.Y, 16, 6)), greenWireColor, 0f, origin, scale, SpriteEffects.None, 0f);
+                        }
+                        hasTopConnection = true;
+                    }
+                    if (greenBottomConnection)
+                    {
+                        if (wireOverlap && !hasBottomConnection)
+                        {
+                            Main.spriteBatch.Draw(TextureAssets.WireNew.Value, WorldVector2ToScreen(new Vector2(x * 16, y * 16) + positionOffset + new Vector2(0f, 10f)), new Rectangle?(new Rectangle(72, wireRect.Y + 10, 16, 6)), greenWireColor, 0f, origin, scale, SpriteEffects.None, 0f);
+                        }
+                        hasBottomConnection = true;
+                    }
+                    if (greenRightConnection)
+                    {
+                        if (wireOverlap && !hasRightConnection)
+                        {
+                            Main.spriteBatch.Draw(TextureAssets.WireNew.Value, WorldVector2ToScreen(new Vector2(x * 16, y * 16) + positionOffset + new Vector2(10f, 0f)), new Rectangle?(new Rectangle(46, wireRect.Y, 6, 16)), greenWireColor, 0f, origin, scale, SpriteEffects.None, 0f);
+                        }
+                        hasRightConnection = true;
+                    }
+                    if (greenLeftConnection)
+                    {
+                        if (wireOverlap && !hasLeftConnection)
+                        {
+                            Main.spriteBatch.Draw(TextureAssets.WireNew.Value, WorldVector2ToScreen(new Vector2(x * 16, y * 16) + positionOffset), new Rectangle?(new Rectangle(144, wireRect.Y, 6, 16)), greenWireColor, 0f, origin, scale, SpriteEffects.None, 0f);
+                        }
+                        hasLeftConnection = true;
+                    }
+                }
+            }
+            if (wireCur.yellow)
+            {
+                bool wireOverlap;
+                bool yellowBottomConnection;
+                bool yellowTopConnection;
+                bool yellowLeftConnection;
+                bool yellowRightConnection = yellowLeftConnection = (yellowTopConnection = (yellowBottomConnection = (wireOverlap = false)));
+                wireCount += 1f;
+                int yellowWireTextureX = 0;
+                if (hasWireTop && wireTop.yellow)
+                {
+                    yellowWireTextureX += 18;
+                    yellowTopConnection = true;
+                    if (hasTopConnection)
+                    {
+                        wireOverlap = true;
+                    }
+                }
+                if (hasWireRight && wireRight.yellow)
+                {
+                    yellowWireTextureX += 36;
+                    yellowRightConnection = true;
+                    if (hasRightConnection)
+                    {
+                        wireOverlap = true;
+                    }
+                }
+                if (hasWireBottom && wireBottom.yellow)
+                {
+                    yellowWireTextureX += 72;
+                    yellowBottomConnection = true;
+                    if (hasBottomConnection)
+                    {
+                        wireOverlap = true;
+                    }
+                }
+                if (hasWireLeft && wireLeft.yellow)
+                {
+                    yellowWireTextureX += 144;
+                    yellowLeftConnection = true;
+                    if (hasLeftConnection)
+                    {
+                        wireOverlap = true;
+                    }
+                }
+                if (wireCount > 1f)
+                {
+                    wireOverlap = true;
+                }
+                wireRect.Y = textureYOffset + 54;
+                wireRect.X = yellowWireTextureX;
+                Color yellowWireColor = Lighting.GetColor(x, y);
+                switch (yellowWireVisibility)
+                {
+                    case 0:
+                        yellowWireColor = Color.White;
+                        break;
+                    case 2:
+                        yellowWireColor *= 0.5f;
+                        break;
+                    case 3:
+                        yellowWireColor = Color.Transparent;
+                        break;
+                }
+                if (yellowWireColor == Color.Transparent)
+                {
+                    wireCount -= 1f;
+                }
+                else
+                {
+                    Main.spriteBatch.Draw(TextureAssets.WireNew.Value, WorldVector2ToScreen(new Vector2(x * 16, y * 16) + positionOffset), new Rectangle?(wireRect), yellowWireColor * (1f / wireCount), 0f, origin, scale, SpriteEffects.None, 0f);
+                    if (yellowTopConnection)
+                    {
+                        if (wireOverlap && !hasTopConnection)
+                        {
+                            Main.spriteBatch.Draw(TextureAssets.WireNew.Value, WorldVector2ToScreen(new Vector2(x * 16, y * 16) + positionOffset), new Rectangle?(new Rectangle(18, wireRect.Y, 16, 6)), yellowWireColor, 0f, origin, scale, SpriteEffects.None, 0f);
+                        }
+                    }
+                    if (yellowBottomConnection)
+                    {
+                        if (wireOverlap && !hasBottomConnection)
+                        {
+                            Main.spriteBatch.Draw(TextureAssets.WireNew.Value, WorldVector2ToScreen(new Vector2(x * 16, y * 16) + positionOffset + new Vector2(0f, 10f)), new Rectangle?(new Rectangle(72, wireRect.Y + 10, 16, 6)), yellowWireColor, 0f, origin, scale, SpriteEffects.None, 0f);
+                        }
+                    }
+                    if (yellowRightConnection)
+                    {
+                        if (wireOverlap && !hasRightConnection)
+                        {
+                            Main.spriteBatch.Draw(TextureAssets.WireNew.Value, WorldVector2ToScreen(new Vector2(x * 16, y * 16) + positionOffset + new Vector2(10f, 0f)), new Rectangle?(new Rectangle(46, wireRect.Y, 6, 16)), yellowWireColor, 0f, origin, scale, SpriteEffects.None, 0f);
+                        }
+                    }
+                    if (yellowLeftConnection)
+                    {
+                        if (wireOverlap && !hasLeftConnection)
+                        {
+                            Main.spriteBatch.Draw(TextureAssets.WireNew.Value, WorldVector2ToScreen(new Vector2(x * 16, y * 16) + positionOffset), new Rectangle?(new Rectangle(144, wireRect.Y, 6, 16)), yellowWireColor, 0f, origin, scale, SpriteEffects.None, 0f);
+                        }
+                    }
                 }
             }
         }
