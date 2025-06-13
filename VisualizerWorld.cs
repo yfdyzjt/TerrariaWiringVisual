@@ -108,20 +108,32 @@ namespace TerrariaWiringVisual
 
         private void DrawReflectionMarkers()
         {
+            Rectangle screenRect = GetScreenRect();
+
             foreach (var item in MarkCache)
             {
+                if (!screenRect.Contains(new Point(item.Key.X, item.Key.Y))) continue;
+
                 DrawTileMarker(item.Key, item.Value);
             }
         }
 
         private void DrawSimpleHeighlights()
         {
+            Rectangle screenRect = GetScreenRect();
+
             foreach (var item in StartHighlight)
             {
+                if (!screenRect.Contains(item.Location)) continue;
+
                 DrawTileBorder(new Point16(item.Location), Color.Red, item.Width, item.Height);
             }
             if (SuspendableWireManager.Mode == SuspendableWireManager.SuspendMode.perSingle)
+            {
+                if (!screenRect.Contains(new Point(PointHighlight.X, PointHighlight.Y))) return;
+
                 DrawTileBorder(PointHighlight, Color.Red);
+            }
         }
 
         private void DrawIndicators()
@@ -142,8 +154,12 @@ namespace TerrariaWiringVisual
             Main.spriteBatch.End();
             Main.spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.Additive);
 
+            Rectangle screenRect = GetScreenRect();
+
             foreach (var item in WireHighlight)
             {
+                if (!screenRect.Contains(new Point(item.Key.X, item.Key.Y))) continue;
+
                 DrawTileBorder(item.Key, Color.White);
 
                 int startY = 2;
@@ -179,7 +195,7 @@ namespace TerrariaWiringVisual
             Vector2 text = FontAssets.MouseText.Value.MeasureString(mark.mark);
             Vector2 loc = new Vector2(
                 (tile.X * 16 - Main.screenPosition.X + 8) * Main.GameViewMatrix.Zoom.X + 0.5f * Main.screenWidth * (1 - Main.GameViewMatrix.Zoom.X),
-                (tile.Y * 16 - Main.screenPosition.Y + 12) * Main.GameViewMatrix.Zoom.Y + 0.5f * Main.screenHeight * (1 - Main.GameViewMatrix.Zoom.Y) 
+                (tile.Y * 16 - Main.screenPosition.Y + 12) * Main.GameViewMatrix.Zoom.Y + 0.5f * Main.screenHeight * (1 - Main.GameViewMatrix.Zoom.Y)
             ) - text * Main.GameViewMatrix.Zoom.X / 2;
 
             if (Main.LocalPlayer.gravDir == -1)
@@ -211,6 +227,34 @@ namespace TerrariaWiringVisual
             Main.spriteBatch.Draw(pixel, new Rectangle(rect.X + rect.Width, rect.Y, borderX, rect.Height + borderX), null, color);
         }
 
+        private Rectangle GetScreenRect(Vector2 offset = default)
+        {
+            if (offset == default)
+                offset = Vector2.Zero;
+
+            int x1 = (int)((Main.screenPosition.X - offset.X) / 16f - 1f);
+            int x2 = (int)((Main.screenPosition.X + (float)Main.screenWidth + offset.X) / 16f) + 2;
+            int y1 = (int)((Main.screenPosition.Y - offset.Y) / 16f - 1f);
+            int y2 = (int)((Main.screenPosition.Y + (float)Main.screenHeight + offset.Y) / 16f) + 5;
+
+            if (x1 < 0)
+                x1 = 0;
+            if (x2 > Main.maxTilesX)
+                x2 = Main.maxTilesX;
+            if (y1 < 0)
+                y1 = 0;
+            if (y2 > Main.maxTilesY)
+                y2 = Main.maxTilesY;
+
+            Point screenOverdrawOffset = Main.GetScreenOverdrawOffset();
+            int iterX1 = x1 + screenOverdrawOffset.X;
+            int iterY1 = y1 + screenOverdrawOffset.Y;
+            int iterX2 = x2 - screenOverdrawOffset.X;
+            int iterY2 = y2 - screenOverdrawOffset.Y;
+
+            return new Rectangle(iterX1, iterY1, iterX2 - iterX1, iterY2 - iterY1);
+        }
+
         private Rectangle WorldRectToScreen(Rectangle rect)
         {
             Rectangle newRect = new Rectangle(
@@ -239,8 +283,10 @@ namespace TerrariaWiringVisual
             WireSegment segment;
             if (!WireHighlight.TryGetValue(point, out segment))
             {
+                /*
                 if (WireHighlight.Count > maxWireVisual)
                     return;
+                */
 
                 segment = new WireSegment();
                 WireHighlight.Add(point, segment);
