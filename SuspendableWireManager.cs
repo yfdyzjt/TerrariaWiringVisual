@@ -98,6 +98,7 @@ namespace TerrariaWiringVisual
                 runnigBackup = Wiring.running;
                 Wiring.running = false;
                 VisualizerWorld.BuildMarkerCache();
+                VisualizerWorld.AllLightIter();
                 AutoStepWorld.ResetTimer();
                 mainWait.Set();
                 wiringWait.WaitOne();

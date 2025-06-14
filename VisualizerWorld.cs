@@ -22,6 +22,11 @@ namespace TerrariaWiringVisual
             public bool green;
             public bool yellow;
 
+            public float redLight;
+            public float blueLight;
+            public float greenLight;
+            public float yellowLight;
+
             public int NumWires()
             {
                 int num = 0;
@@ -96,15 +101,34 @@ namespace TerrariaWiringVisual
                 Main.spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.AlphaBlend);
 
                 DrawIndicators();
+                LightScreen();
 
                 if (SuspendableWireManager.Running)
                 {
+                    DrawReflectionMarkers();
                     DrawWireSegments();
                     DrawSimpleHeighlights();
-                    DrawReflectionMarkers();
                 }
 
                 Main.spriteBatch.End();
+            }
+        }
+
+        private void LightScreen()
+        {
+            Rectangle screen = GetScreenRect();
+
+            Vector3 lightColor = new(0.2f, 0.2f, 0.2f);
+
+            for (int x = screen.Left; x < screen.Right; x++)
+            {
+                for (int y = screen.Top; y < screen.Bottom; y++)
+                {
+                    if (Main.tile[x, y].HasTile && !MarkCache.TryGetValue(new Point16(x, y), out ColoredMark _))
+                    {
+                        Lighting.AddLight(x, y, lightColor.X, lightColor.Y, lightColor.Z);
+                    }
+                }
             }
         }
 
@@ -117,6 +141,7 @@ namespace TerrariaWiringVisual
                 if (!screenRect.Contains(new Point(item.Key.X, item.Key.Y))) continue;
 
                 DrawTileMarker(item.Key, item.Value);
+                LightTileMarker(item.Key, item.Value);
             }
         }
 
@@ -129,12 +154,14 @@ namespace TerrariaWiringVisual
                 if (!screenRect.Contains(item.Location)) continue;
 
                 DrawTileBorder(new Point16(item.Location), Color.Red, item.Width, item.Height);
+                LightTileBorder(new Point16(item.Location), Color.White, item.Width, item.Height);
             }
             if (SuspendableWireManager.Mode == SuspendableWireManager.SuspendMode.perSingle)
             {
                 if (!screenRect.Contains(new Point(PointHighlight.X, PointHighlight.Y))) return;
 
                 DrawTileBorder(PointHighlight, Color.Red);
+                LightTileBorder(PointHighlight, Color.White);
             }
         }
 
@@ -160,9 +187,11 @@ namespace TerrariaWiringVisual
 
             foreach (var item in WireHighlight)
             {
-                if (!screenRect.Contains(new Point(item.Key.X, item.Key.Y))) continue;
-
-                DrawWires(item.Key);
+                if (screenRect.Contains(new Point(item.Key.X, item.Key.Y)))
+                {
+                    DrawWires(item.Key, item.Value);
+                    LightWires(item.Key, item.Value);
+                }
             }
 
             Main.spriteBatch.End();
@@ -209,8 +238,82 @@ namespace TerrariaWiringVisual
             */
         }
 
+        private void LightTileMarker(Point16 tile, ColoredMark mark)
+        {
+            if (mark.mark == "O" || mark.mark == "?")
+            {
+                Lighting.AddLight(tile.X, tile.Y, mark.color.R / 255f, mark.color.G / 255f, mark.color.B / 255f);
+            }
+        }
+
         private void DrawTileMarker(Point16 tile, ColoredMark mark)
         {
+            if (mark.mark == "O" || mark.mark == "?")
+            {
+                Main.spriteBatch.Draw(TextureAssets.Tile[TileID.LogicGate].Value,
+                    WorldVector2ToScreen(new Vector2(tile.X * 16, tile.Y * 16)),
+                    new Rectangle?(new Rectangle(Main.tile[tile.X, tile.Y].TileFrameX, Main.tile[tile.X, tile.Y].TileFrameY, 16, 16)),
+                    new Color(1.0f, 0.5f, 0.5f),
+                    0f,
+                    Vector2.Zero,
+                    Main.GameViewMatrix.Zoom.X,
+                    SpriteEffects.None,
+                    0f);
+
+                for (int y = tile.Y - 1; ; y--)
+                {
+                    if (Main.tile[tile.X, y].HasTile && Main.tile[tile.X, y].TileType == TileID.LogicGateLamp)
+                    {
+                        Main.spriteBatch.Draw(TextureAssets.Tile[TileID.LogicGateLamp].Value,
+                            WorldVector2ToScreen(new Vector2(tile.X * 16, y * 16)),
+                            new Rectangle?(new Rectangle(Main.tile[tile.X, y].TileFrameX, Main.tile[tile.X, y].TileFrameY, 16, 16)),
+                            new Color(1.0f, 0.5f, 0.5f),
+                            0f,
+                            Vector2.Zero,
+                            Main.GameViewMatrix.Zoom.X,
+                            SpriteEffects.None,
+                            0f);
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+            }
+            else if (mark.mark == "X")
+            {
+                Main.spriteBatch.Draw(TextureAssets.Tile[TileID.LogicGate].Value,
+                    WorldVector2ToScreen(new Vector2(tile.X * 16, tile.Y * 16)),
+                    new Rectangle?(new Rectangle(Main.tile[tile.X, tile.Y].TileFrameX, Main.tile[tile.X, tile.Y].TileFrameY, 16, 16)),
+                    new Color(0.3f, 0.3f, 0.3f),
+                    0f,
+                    Vector2.Zero,
+                    Main.GameViewMatrix.Zoom.X,
+                    SpriteEffects.None,
+                    0f);
+
+                for (int y = tile.Y - 1; ; y--)
+                {
+                    if (Main.tile[tile.X, y].HasTile && Main.tile[tile.X, y].TileType == TileID.LogicGateLamp)
+                    {
+                        Main.spriteBatch.Draw(TextureAssets.Tile[TileID.LogicGateLamp].Value,
+                            WorldVector2ToScreen(new Vector2(tile.X * 16, y * 16)),
+                            new Rectangle?(new Rectangle(Main.tile[tile.X, y].TileFrameX, Main.tile[tile.X, y].TileFrameY, 16, 16)),
+                            new Color(0.3f, 0.3f, 0.3f),
+                            0f,
+                            Vector2.Zero,
+                            Main.GameViewMatrix.Zoom.X,
+                            SpriteEffects.None,
+                            0f);
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+            }
+
+            /*
             Vector2 text = FontAssets.MouseText.Value.MeasureString(mark.mark);
             Vector2 loc = new Vector2(
                 (tile.X * 16 - Main.screenPosition.X + 8) * Main.GameViewMatrix.Zoom.X + 0.5f * Main.screenWidth * (1 - Main.GameViewMatrix.Zoom.X),
@@ -231,6 +334,19 @@ namespace TerrariaWiringVisual
                 SpriteEffects.None,
                 0.0f
             );
+            */
+        }
+
+        private void LightTileBorder(Point16 tile, Color color, int width = 1, int height = 1)
+        {
+            for (int x = tile.X; x < tile.X + width; x++)
+            {
+                for (int y = tile.Y; y < tile.Y + height; y++)
+                {
+                    Lighting.AddLight(x, y, color.R / 255f, color.G / 255f, color.B / 255f);
+                }
+            }
+
         }
 
         private void DrawTileBorder(Point16 tile, Color color, int width = 1, int height = 1)
@@ -303,7 +419,7 @@ namespace TerrariaWiringVisual
 
         public static void ResetSegments()
         {
-            WireHighlight.Clear();
+            // WireHighlight.Clear();
             StartHighlight.Clear();
         }
 
@@ -325,10 +441,10 @@ namespace TerrariaWiringVisual
 
             switch (color)
             {
-                case 1: segment.red = true; break;
-                case 2: segment.blue = true; break;
-                case 3: segment.green = true; break;
-                case 4: segment.yellow = true; break;
+                case 1: segment.red = true; segment.redLight = 1f; break;
+                case 2: segment.blue = true; segment.blueLight = 1f; break;
+                case 3: segment.green = true; segment.greenLight = 1f; break;
+                case 4: segment.yellow = true; segment.yellowLight = 1f; break;
             }
         }
 
@@ -418,7 +534,93 @@ namespace TerrariaWiringVisual
             }
         }
 
-        protected void DrawWires(Point16 tileLoc)
+        public static void AllLightIter()
+        {
+            foreach (var item in WireHighlight)
+            {
+                WiresIter(item.Key, item.Value);
+            }
+        }
+
+        private static void WiresIter(Point16 tileLoc, WireSegment wireCur)
+        {
+            int lightIter = 60;
+
+            if (wireCur.red)
+            {
+                wireCur.redLight -= 1f / lightIter;
+                if (wireCur.redLight <= 0)
+                {
+                    wireCur.red = false;
+                }
+            }
+            if (wireCur.blue)
+            {
+                wireCur.blueLight -= 1f / lightIter;
+                if (wireCur.blueLight <= 0)
+                {
+                    wireCur.blue = false;
+                }
+            }
+            if (wireCur.green)
+            {
+                wireCur.greenLight -= 1f / lightIter;
+                if (wireCur.greenLight <= 0)
+                {
+                    wireCur.green = false;
+                }
+            }
+            if (wireCur.yellow)
+            {
+                wireCur.yellowLight -= 1f / lightIter;
+                if (wireCur.yellowLight <= 0)
+                {
+                    wireCur.yellow = false;
+                }
+            }
+            if (!(wireCur.red || wireCur.blue || wireCur.green || wireCur.yellow))
+            {
+                WireHighlight.Remove(tileLoc);
+            }
+        }
+
+        private void LightWires(Point16 tileLoc, WireSegment wireCur)
+        {
+            int x = tileLoc.X;
+            int y = tileLoc.Y;
+
+            // Lighting.GlobalBrightness = 1.5f;
+
+            Vector3 lightColor;
+
+            if (wireCur.red)
+            {
+                TorchID.TorchColor(TorchID.Red, out lightColor.X, out lightColor.Y, out lightColor.Z);
+                lightColor *= wireCur.redLight;
+                Lighting.AddLight(x, y, lightColor.X, lightColor.Y, lightColor.Z);
+            }
+            if (wireCur.blue)
+            {
+                TorchID.TorchColor(TorchID.Blue, out lightColor.X, out lightColor.Y, out lightColor.Z);
+                lightColor *= wireCur.blueLight;
+                Lighting.AddLight(x, y, lightColor.X, lightColor.Y, lightColor.Z);
+            }
+            if (wireCur.green)
+            {
+                TorchID.TorchColor(TorchID.Green, out lightColor.X, out lightColor.Y, out lightColor.Z);
+                lightColor *= wireCur.greenLight;
+                Lighting.AddLight(x, y, lightColor.X, lightColor.Y, lightColor.Z);
+            }
+            if (wireCur.yellow)
+            {
+                TorchID.TorchColor(TorchID.Yellow, out lightColor.X, out lightColor.Y, out lightColor.Z);
+                lightColor *= wireCur.yellowLight;
+                Lighting.AddLight(x, y, lightColor.X, lightColor.Y, lightColor.Z);
+            }
+
+        }
+
+        private void DrawWires(Point16 tileLoc, WireSegment wireCur)
         {
             Rectangle wireRect = new Rectangle(0, 0, 16, 16);
             Vector2 origin = Vector2.Zero;
@@ -426,32 +628,27 @@ namespace TerrariaWiringVisual
 
             float scale = Main.GameViewMatrix.Zoom.X;
 
-            int redWireVisibility = 0;
-            int blueWireVisibility = 0;
-            int greenWireVisibility = 0;
-            int yellowWireVisibility = 0;
+            Color redWireColor = Color.White * wireCur.redLight;
+            Color blueWireColor = Color.White * wireCur.blueLight;
+            Color greenWireColor = Color.White * wireCur.greenLight;
+            Color yellowWireColor = Color.White * wireCur.yellowLight;
 
-            bool hasLeftConnection = false;
-            bool hasRightConnection = false;
-            bool hasTopConnection = false;
-            bool hasBottomConnection = false;
-            float wireCount = 0f;
+            int wireCount = 0;
 
             int x = tileLoc.X;
             int y = tileLoc.Y;
 
             Tile tile = Main.tile[x, y];
-            WireSegment wireCur;
 
-            if (!WireHighlight.TryGetValue(new Point16(x, y), out wireCur)) return;
+            bool hasWireTop = WireHighlight.TryGetValue(new Point16(x, y - 1), out WireSegment wireTop);
+            bool hasWireBottom = WireHighlight.TryGetValue(new Point16(x, y + 1), out WireSegment wireBottom);
+            bool hasWireLeft = WireHighlight.TryGetValue(new Point16(x - 1, y), out WireSegment wireLeft);
+            bool hasWireRight = WireHighlight.TryGetValue(new Point16(x + 1, y), out WireSegment wireRight);
 
-            bool hasWireTop, hasWireBottom, hasWireLeft, hasWireRight;
-            WireSegment wireTop, wireBottom, wireLeft, wireRight;
-
-            hasWireTop = WireHighlight.TryGetValue(new Point16(x, y - 1), out wireTop);
-            hasWireBottom = WireHighlight.TryGetValue(new Point16(x, y + 1), out wireBottom);
-            hasWireLeft = WireHighlight.TryGetValue(new Point16(x - 1, y), out wireLeft);
-            hasWireRight = WireHighlight.TryGetValue(new Point16(x + 1, y), out wireRight);
+            bool hasLeftConnection = false;
+            bool hasRightConnection = false;
+            bool hasTopConnection = false;
+            bool hasBottomConnection = false;
 
             int textureYOffset = 0;
             if (tile.HasTile)
@@ -478,7 +675,7 @@ namespace TerrariaWiringVisual
             }
             if (wireCur.red)
             {
-                wireCount += 1f;
+                wireCount += 1;
                 int redWireTextureX = 0;
                 if (hasWireTop && wireTop.red)
                 {
@@ -502,22 +699,9 @@ namespace TerrariaWiringVisual
                 }
                 wireRect.Y = textureYOffset;
                 wireRect.X = redWireTextureX;
-                Color redWireColor = Lighting.GetColor(x, y);
-                switch (redWireVisibility)
-                {
-                    case 0:
-                        redWireColor = Color.White;
-                        break;
-                    case 2:
-                        redWireColor *= 0.5f;
-                        break;
-                    case 3:
-                        redWireColor = Color.Transparent;
-                        break;
-                }
                 if (redWireColor == Color.Transparent)
                 {
-                    wireCount -= 1f;
+                    wireCount -= 1;
                 }
                 else
                 {
@@ -531,7 +715,7 @@ namespace TerrariaWiringVisual
                 bool blueTopConnection;
                 bool blueLeftConnection;
                 bool blueRightConnection = blueLeftConnection = (blueTopConnection = (blueBottomConnection = (wireOverlap = false)));
-                wireCount += 1f;
+                wireCount += 1;
                 int blueWireTextureX = 0;
                 if (hasWireTop && wireTop.blue)
                 {
@@ -569,28 +753,15 @@ namespace TerrariaWiringVisual
                         wireOverlap = true;
                     }
                 }
-                if (wireCount > 1f)
+                if (wireCount > 1)
                 {
                     wireOverlap = true;
                 }
                 wireRect.Y = textureYOffset + 18;
                 wireRect.X = blueWireTextureX;
-                Color blueWireColor = Lighting.GetColor(x, y);
-                switch (blueWireVisibility)
-                {
-                    case 0:
-                        blueWireColor = Color.White;
-                        break;
-                    case 2:
-                        blueWireColor *= 0.5f;
-                        break;
-                    case 3:
-                        blueWireColor = Color.Transparent;
-                        break;
-                }
                 if (blueWireColor == Color.Transparent)
                 {
-                    wireCount -= 1f;
+                    wireCount -= 1;
                 }
                 else
                 {
@@ -636,7 +807,7 @@ namespace TerrariaWiringVisual
                 bool greenTopConnection;
                 bool greenLeftConnection;
                 bool greenRightConnection = greenLeftConnection = (greenTopConnection = (greenBottomConnection = (wireOverlap = false)));
-                wireCount += 1f;
+                wireCount += 1;
                 int greenWireTextureX = 0;
                 if (hasWireTop && wireTop.green)
                 {
@@ -674,28 +845,15 @@ namespace TerrariaWiringVisual
                         wireOverlap = true;
                     }
                 }
-                if (wireCount > 1f)
+                if (wireCount > 1)
                 {
                     wireOverlap = true;
                 }
                 wireRect.Y = textureYOffset + 36;
                 wireRect.X = greenWireTextureX;
-                Color greenWireColor = Lighting.GetColor(x, y);
-                switch (greenWireVisibility)
-                {
-                    case 0:
-                        greenWireColor = Color.White;
-                        break;
-                    case 2:
-                        greenWireColor *= 0.5f;
-                        break;
-                    case 3:
-                        greenWireColor = Color.Transparent;
-                        break;
-                }
                 if (greenWireColor == Color.Transparent)
                 {
-                    wireCount -= 1f;
+                    wireCount -= 1;
                 }
                 else
                 {
@@ -741,7 +899,7 @@ namespace TerrariaWiringVisual
                 bool yellowTopConnection;
                 bool yellowLeftConnection;
                 bool yellowRightConnection = yellowLeftConnection = (yellowTopConnection = (yellowBottomConnection = (wireOverlap = false)));
-                wireCount += 1f;
+                wireCount += 1;
                 int yellowWireTextureX = 0;
                 if (hasWireTop && wireTop.yellow)
                 {
@@ -779,28 +937,15 @@ namespace TerrariaWiringVisual
                         wireOverlap = true;
                     }
                 }
-                if (wireCount > 1f)
+                if (wireCount > 1)
                 {
                     wireOverlap = true;
                 }
                 wireRect.Y = textureYOffset + 54;
                 wireRect.X = yellowWireTextureX;
-                Color yellowWireColor = Lighting.GetColor(x, y);
-                switch (yellowWireVisibility)
-                {
-                    case 0:
-                        yellowWireColor = Color.White;
-                        break;
-                    case 2:
-                        yellowWireColor *= 0.5f;
-                        break;
-                    case 3:
-                        yellowWireColor = Color.Transparent;
-                        break;
-                }
                 if (yellowWireColor == Color.Transparent)
                 {
-                    wireCount -= 1f;
+                    wireCount -= 1;
                 }
                 else
                 {
