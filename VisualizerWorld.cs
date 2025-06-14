@@ -27,6 +27,11 @@ namespace TerrariaWiringVisual
             public float greenLight;
             public float yellowLight;
 
+            public int redIter;
+            public int blueIter;
+            public int greenIter;
+            public int yellowIter;
+
             public int NumWires()
             {
                 int num = 0;
@@ -124,10 +129,7 @@ namespace TerrariaWiringVisual
             {
                 for (int y = screen.Top; y < screen.Bottom; y++)
                 {
-                    if (Main.tile[x, y].HasTile && !MarkCache.TryGetValue(new Point16(x, y), out ColoredMark _))
-                    {
-                        Lighting.AddLight(x, y, lightColor.X, lightColor.Y, lightColor.Z);
-                    }
+                    Lighting.AddLight(x, y, lightColor.X, lightColor.Y, lightColor.Z);
                 }
             }
         }
@@ -242,7 +244,7 @@ namespace TerrariaWiringVisual
         {
             if (mark.mark == "O" || mark.mark == "?")
             {
-                Lighting.AddLight(tile.X, tile.Y, mark.color.R / 255f, mark.color.G / 255f, mark.color.B / 255f);
+                Lighting.AddLight(tile.X, tile.Y, Color.White.R / 255f, Color.White.G / 255f, Color.White.B / 255f);
             }
         }
 
@@ -250,29 +252,14 @@ namespace TerrariaWiringVisual
         {
             if (mark.mark == "O" || mark.mark == "?")
             {
-                Main.spriteBatch.Draw(TextureAssets.Tile[TileID.LogicGate].Value,
-                    WorldVector2ToScreen(new Vector2(tile.X * 16, tile.Y * 16)),
-                    new Rectangle?(new Rectangle(Main.tile[tile.X, tile.Y].TileFrameX, Main.tile[tile.X, tile.Y].TileFrameY, 16, 16)),
-                    new Color(1.0f, 0.5f, 0.5f),
-                    0f,
-                    Vector2.Zero,
-                    Main.GameViewMatrix.Zoom.X,
-                    SpriteEffects.None,
-                    0f);
+                DrawTileBorder(tile, Color.White);
+                Main.spriteBatch.Draw(pixel, WorldRectToScreen(new Rectangle(tile.X * 16, tile.Y * 16, 16, 16)), Color.White * 0.5f);
 
                 for (int y = tile.Y - 1; ; y--)
                 {
                     if (Main.tile[tile.X, y].HasTile && Main.tile[tile.X, y].TileType == TileID.LogicGateLamp)
                     {
-                        Main.spriteBatch.Draw(TextureAssets.Tile[TileID.LogicGateLamp].Value,
-                            WorldVector2ToScreen(new Vector2(tile.X * 16, y * 16)),
-                            new Rectangle?(new Rectangle(Main.tile[tile.X, y].TileFrameX, Main.tile[tile.X, y].TileFrameY, 16, 16)),
-                            new Color(1.0f, 0.5f, 0.5f),
-                            0f,
-                            Vector2.Zero,
-                            Main.GameViewMatrix.Zoom.X,
-                            SpriteEffects.None,
-                            0f);
+                        DrawTileBorder(new Point16(tile.X, y), Color.White);
                     }
                     else
                     {
@@ -423,6 +410,10 @@ namespace TerrariaWiringVisual
             StartHighlight.Clear();
         }
 
+        private static int redIterCount;
+        private static int blueIterCount;
+        private static int greenIterCount;
+        private static int yellowIterCount;
         public static void AddWireSegment(Point16 point, int color)
         {
             PointHighlight = point;
@@ -441,15 +432,40 @@ namespace TerrariaWiringVisual
 
             switch (color)
             {
-                case 1: segment.red = true; segment.redLight = 1f; break;
-                case 2: segment.blue = true; segment.blueLight = 1f; break;
-                case 3: segment.green = true; segment.greenLight = 1f; break;
-                case 4: segment.yellow = true; segment.yellowLight = 1f; break;
+                case 1:
+                    segment.red = true;
+                    segment.redLight = 1f;
+                    segment.redIter = Math.Max(segment.redIter, redIterCount);
+                    redIterCount++;
+                    break;
+                case 2:
+                    segment.blue = true;
+                    segment.blueLight = 1f;
+                    segment.blueIter = Math.Max(segment.blueIter, blueIterCount);
+                    blueIterCount++;
+                    break;
+                case 3:
+                    segment.green = true;
+                    segment.greenLight = 1f;
+                    segment.greenIter = Math.Max(segment.greenIter, greenIterCount);
+                    greenIterCount++;
+                    break;
+                case 4:
+                    segment.yellow = true;
+                    segment.yellowLight = 1f;
+                    segment.yellowIter = Math.Max(segment.yellowIter, yellowIterCount);
+                    yellowIterCount++;
+                    break;
             }
         }
 
         public static void AddStart(Rectangle trip)
         {
+            redIterCount = 0;
+            blueIterCount = 0;
+            greenIterCount = 0;
+            yellowIterCount = 0;
+
             StartHighlight.Add(trip);
         }
 
@@ -544,39 +560,69 @@ namespace TerrariaWiringVisual
 
         private static void WiresIter(Point16 tileLoc, WireSegment wireCur)
         {
-            int lightIter = 60;
+            const int speedCount = 6;
+            const int tailCount = 90;
+            const int allCount = 60;
 
             if (wireCur.red)
             {
-                wireCur.redLight -= 1f / lightIter;
-                if (wireCur.redLight <= 0)
+                wireCur.redLight *= 1f - 1f / allCount;
+
+                if (wireCur.redIter < 0)
+                {
+                    wireCur.redLight *= 1f + (float)wireCur.redIter / tailCount;
+                }
+                if (wireCur.redLight <= 1f / 255f)
                 {
                     wireCur.red = false;
                 }
+
+                wireCur.redIter -= speedCount;
             }
             if (wireCur.blue)
             {
-                wireCur.blueLight -= 1f / lightIter;
-                if (wireCur.blueLight <= 0)
+                wireCur.blueLight *= 1f - 1f / allCount;
+
+                if (wireCur.blueIter < 0)
+                {
+                    wireCur.blueLight *= 1f + (float)wireCur.blueIter / tailCount;
+                }
+                if (wireCur.blueLight <= 1f / 255f)
                 {
                     wireCur.blue = false;
                 }
+
+                wireCur.blueIter -= speedCount;
             }
             if (wireCur.green)
             {
-                wireCur.greenLight -= 1f / lightIter;
-                if (wireCur.greenLight <= 0)
+                wireCur.greenLight *= 1f - 1f / allCount;
+
+                if (wireCur.greenIter < 0)
+                {
+                    wireCur.greenLight *= 1f + (float)wireCur.greenIter / tailCount;
+                }
+                if (wireCur.greenLight <= 1f / 255f)
                 {
                     wireCur.green = false;
                 }
+
+                wireCur.greenIter -= speedCount;
             }
             if (wireCur.yellow)
             {
-                wireCur.yellowLight -= 1f / lightIter;
-                if (wireCur.yellowLight <= 0)
+                wireCur.yellowLight *= 1f - 1f / allCount;
+
+                if (wireCur.yellowIter < 0)
+                {
+                    wireCur.yellowLight *= 1f + (float)wireCur.yellowIter / tailCount;
+                }
+                if (wireCur.yellowLight <= 1f / 255f)
                 {
                     wireCur.yellow = false;
                 }
+
+                wireCur.yellowIter -= speedCount;
             }
             if (!(wireCur.red || wireCur.blue || wireCur.green || wireCur.yellow))
             {
