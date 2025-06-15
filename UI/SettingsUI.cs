@@ -28,6 +28,14 @@ namespace TerrariaWiringVisual.UI
 
             UIIntBox arateBox = new UIIntBox(() => AutoStepWorld.Rate, x => AutoStepWorld.Rate = x, 2);
             arateBox.Width = new StyleDimension(0, 0.25f);
+            UIIntBox trateBox = new UIIntBox(() => VisualizerWorld.TileLightRate, x => VisualizerWorld.TileLightRate = x, 2);
+            trateBox.Width = new StyleDimension(0, 0.25f);
+            UIIntBox asrateBox = new UIIntBox(() => VisualizerWorld.AllSubRate, x => VisualizerWorld.AllSubRate = x, 3);
+            asrateBox.Width = new StyleDimension(0, 0.25f);
+            UIIntBox tsrateBox = new UIIntBox(() => VisualizerWorld.TailSubRate, x => VisualizerWorld.TailSubRate = x, 3);
+            tsrateBox.Width = new StyleDimension(0, 0.25f);
+            UIIntBox srateBox = new UIIntBox(() => VisualizerWorld.TailSpeedRate, x => VisualizerWorld.TailSpeedRate = x, 3);
+            srateBox.Width = new StyleDimension(0, 0.25f);
 
             UIElement[] elements = new UIElement[]
             {
@@ -50,6 +58,18 @@ namespace TerrariaWiringVisual.UI
                 null,
                 new UIText("Auto-step rate:"),
                 arateBox,
+                null,
+                new UIText("Tile light rate:"),
+                trateBox,
+                null,
+                new UIText("Wires sub rate:"),
+                asrateBox,
+                null,
+                new UIText("Wires tail sub rate:"),
+                tsrateBox,
+                null,
+                new UIText("Wires tail speed rate:"),
+                srateBox,
                 null,
                 new UIAutoText(() => string.Format("Queued wire trips: {0}", SuspendableWireManager.QueuedNum)),
             };

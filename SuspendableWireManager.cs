@@ -31,9 +31,11 @@ namespace TerrariaWiringVisual
             set
             {
                 active = value;
+
+                VisualizerWorld.ResetWireSegments();
+
                 if (!value)
                 {
-                    VisualizerWorld.ResetWireSegments();
                     Resume();
                 }
             }

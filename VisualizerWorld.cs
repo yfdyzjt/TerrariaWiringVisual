@@ -1,13 +1,11 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using ReLogic.Graphics;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.GameContent;
-using Terraria.GameContent.UI;
 using Terraria.ID;
 using Terraria.ModLoader;
 
@@ -63,10 +61,20 @@ namespace TerrariaWiringVisual
         public static bool ShowTeleporters = true;
         public static bool ShowPumps = true;
 
+        public static int TailSpeedRate = 6;
+        public static int TailSubRate = 90;
+        public static int AllSubRate = 60;
+        public static int TileLightRate = 20;
+
         private static readonly Color ColorWRed = new Color(255, 0, 0, 128);
         private static readonly Color ColorWBlue = new Color(0, 0, 255, 128);
         private static readonly Color ColorWGreen = new Color(0, 255, 0, 128);
         private static readonly Color ColorWYellow = new Color(255, 255, 0, 128);
+
+        private static int redIterCount;
+        private static int blueIterCount;
+        private static int greenIterCount;
+        private static int yellowIterCount;
 
         private static List<Rectangle> StartHighlight;
         private static Dictionary<Point16, WireSegment> WireHighlight;
@@ -125,7 +133,7 @@ namespace TerrariaWiringVisual
         {
             Rectangle screen = GetScreenRect();
 
-            Vector3 lightColor = new(0.2f, 0.2f, 0.2f);
+            Vector3 lightColor = new(TileLightRate / 100f, TileLightRate / 100f, TileLightRate / 100f);
 
             for (int x = screen.Left; x < screen.Right; x++)
             {
@@ -402,19 +410,15 @@ namespace TerrariaWiringVisual
 
         public static void ResetStartSegments()
         {
-            StartHighlight.Clear();
+            StartHighlight?.Clear();
         }
 
         public static void ResetWireSegments()
         {
-            StartHighlight.Clear();
-            WireHighlight.Clear();
+            StartHighlight?.Clear();
+            WireHighlight?.Clear();
         }
 
-        private static int redIterCount;
-        private static int blueIterCount;
-        private static int greenIterCount;
-        private static int yellowIterCount;
         public static void AddWireSegment(Point16 point, int color)
         {
             PointHighlight = point;
@@ -561,69 +565,65 @@ namespace TerrariaWiringVisual
 
         private static void WiresIter(Point16 tileLoc, WireSegment wireCur)
         {
-            const int speedCount = 6;
-            const int tailCount = 90;
-            const int allCount = 60;
-
             if (wireCur.red)
             {
-                wireCur.redLight *= 1f - 1f / allCount;
+                wireCur.redLight *= 1f - 1f / AllSubRate;
 
                 if (wireCur.redIter < 0)
                 {
-                    wireCur.redLight *= 1f + (float)wireCur.redIter / tailCount;
+                    wireCur.redLight *= 1f + (float)wireCur.redIter / TailSubRate;
                 }
                 if (wireCur.redLight <= 1f / 255f)
                 {
                     wireCur.red = false;
                 }
 
-                wireCur.redIter -= speedCount;
+                wireCur.redIter -= TailSpeedRate;
             }
             if (wireCur.blue)
             {
-                wireCur.blueLight *= 1f - 1f / allCount;
+                wireCur.blueLight *= 1f - 1f / AllSubRate;
 
                 if (wireCur.blueIter < 0)
                 {
-                    wireCur.blueLight *= 1f + (float)wireCur.blueIter / tailCount;
+                    wireCur.blueLight *= 1f + (float)wireCur.blueIter / TailSubRate;
                 }
                 if (wireCur.blueLight <= 1f / 255f)
                 {
                     wireCur.blue = false;
                 }
 
-                wireCur.blueIter -= speedCount;
+                wireCur.blueIter -= TailSpeedRate;
             }
             if (wireCur.green)
             {
-                wireCur.greenLight *= 1f - 1f / allCount;
+                wireCur.greenLight *= 1f - 1f / AllSubRate;
 
                 if (wireCur.greenIter < 0)
                 {
-                    wireCur.greenLight *= 1f + (float)wireCur.greenIter / tailCount;
+                    wireCur.greenLight *= 1f + (float)wireCur.greenIter / TailSubRate;
                 }
                 if (wireCur.greenLight <= 1f / 255f)
                 {
                     wireCur.green = false;
                 }
 
-                wireCur.greenIter -= speedCount;
+                wireCur.greenIter -= TailSpeedRate;
             }
             if (wireCur.yellow)
             {
-                wireCur.yellowLight *= 1f - 1f / allCount;
+                wireCur.yellowLight *= 1f - 1f / AllSubRate;
 
                 if (wireCur.yellowIter < 0)
                 {
-                    wireCur.yellowLight *= 1f + (float)wireCur.yellowIter / tailCount;
+                    wireCur.yellowLight *= 1f + (float)wireCur.yellowIter / TailSubRate;
                 }
                 if (wireCur.yellowLight <= 1f / 255f)
                 {
                     wireCur.yellow = false;
                 }
 
-                wireCur.yellowIter -= speedCount;
+                wireCur.yellowIter -= TailSpeedRate;
             }
             if (!(wireCur.red || wireCur.blue || wireCur.green || wireCur.yellow))
             {
