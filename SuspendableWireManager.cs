@@ -1,6 +1,7 @@
 ﻿using Microsoft.Xna.Framework;
 using MonoMod.Cil;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using Terraria;
 using Terraria.Utilities;
@@ -21,7 +22,22 @@ namespace TerrariaWiringVisual
         private const int maxQueuedTrips = 100;
 
         public static bool Running { get; private set; }
-        public static bool Active { get { return active; } set { active = value; if (!value) Resume(); } }
+        public static bool Active
+        {
+            get
+            {
+                return active;
+            }
+            set
+            {
+                active = value;
+                if (!value)
+                {
+                    VisualizerWorld.ResetWireSegments();
+                    Resume();
+                }
+            }
+        }
         public static SuspendMode Mode = SuspendMode.perStage;
         public static int QueuedNum { get { return queuedWireTrips.Count; } }
 
@@ -53,7 +69,7 @@ namespace TerrariaWiringVisual
                 return false;
             }
 
-            VisualizerWorld.ResetSegments();
+            VisualizerWorld.ResetStartSegments();
 
             Running = true;
 
@@ -76,6 +92,8 @@ namespace TerrariaWiringVisual
 
         public static void Resume()
         {
+            VisualizerWorld.AllLightIter();
+
             if (!Running)
                 return;
 
@@ -98,7 +116,6 @@ namespace TerrariaWiringVisual
                 runnigBackup = Wiring.running;
                 Wiring.running = false;
                 VisualizerWorld.BuildMarkerCache();
-                VisualizerWorld.AllLightIter();
                 AutoStepWorld.ResetTimer();
                 mainWait.Set();
                 wiringWait.WaitOne();
@@ -163,7 +180,7 @@ namespace TerrariaWiringVisual
                 //We want to clear visuals after we are done with a source or stage
                 if (labelSingle != null)
                     cursor.MarkLabel(labelSingle);
-                cursor.EmitCall(typeof(VisualizerWorld).GetMethod("ResetSegments"));
+                cursor.EmitCall(typeof(VisualizerWorld).GetMethod("ResetStartSegments"));
             }
 
             cursor.MarkLabel(labelSkip);

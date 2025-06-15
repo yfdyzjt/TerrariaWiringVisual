@@ -81,6 +81,8 @@ namespace TerrariaWiringVisual
         private static Dictionary<Point16, bool> WiringWireSkip;
         private static Vector2[] WiringTeleporters;
 
+        public static bool IsWireHighlightNull { get { return WireHighlight == null || WireHighlight.Count == 0; } }
+
         public override void OnWorldLoad()
         {
             StartHighlight = new List<Rectangle>();
@@ -108,7 +110,7 @@ namespace TerrariaWiringVisual
                 DrawIndicators();
                 LightScreen();
 
-                if (SuspendableWireManager.Running)
+                if (SuspendableWireManager.Running || !IsWireHighlightNull)
                 {
                     DrawReflectionMarkers();
                     DrawWireSegments();
@@ -182,9 +184,6 @@ namespace TerrariaWiringVisual
 
         private void DrawWireSegments()
         {
-            Main.spriteBatch.End();
-            Main.spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.AlphaBlend);
-
             Rectangle screenRect = GetScreenRect();
 
             foreach (var item in WireHighlight)
@@ -195,9 +194,6 @@ namespace TerrariaWiringVisual
                     LightWires(item.Key, item.Value);
                 }
             }
-
-            Main.spriteBatch.End();
-            Main.spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.AlphaBlend);
 
             /*
             Main.spriteBatch.End();
@@ -404,10 +400,15 @@ namespace TerrariaWiringVisual
             return newRect;
         }
 
-        public static void ResetSegments()
+        public static void ResetStartSegments()
         {
-            // WireHighlight.Clear();
             StartHighlight.Clear();
+        }
+
+        public static void ResetWireSegments()
+        {
+            StartHighlight.Clear();
+            WireHighlight.Clear();
         }
 
         private static int redIterCount;

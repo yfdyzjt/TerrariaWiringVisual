@@ -11,7 +11,8 @@ namespace TerrariaWiringVisual
 
         public override void PostUpdateWorld()
         {
-            if (Active && SuspendableWireManager.Running)
+            if (Active && (SuspendableWireManager.Running ||
+                (!SuspendableWireManager.Running && !VisualizerWorld.IsWireHighlightNull)))
             {
                 count++;
                 if (count > Rate)
