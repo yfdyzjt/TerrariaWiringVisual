@@ -26,9 +26,9 @@ namespace TerrariaWiringVisual.UI
             BasePanel.Height = new StyleDimension(0, 1);
             Append(BasePanel);
 
-            UIIntBox arateBox = new UIIntBox(() => AutoStepWorld.Rate, x => AutoStepWorld.Rate = x, 2);
+            UIIntBox arateBox = new UIIntBox(() => AutoStepWorld.Rate, x => AutoStepWorld.Rate = x, 3);
             arateBox.Width = new StyleDimension(0, 0.25f);
-            UIIntBox trateBox = new UIIntBox(() => VisualizerWorld.TileLightRate, x => VisualizerWorld.TileLightRate = x, 2);
+            UIIntBox trateBox = new UIIntBox(() => VisualizerWorld.TileLightRate, x => VisualizerWorld.TileLightRate = x, 3);
             trateBox.Width = new StyleDimension(0, 0.25f);
             UIIntBox asrateBox = new UIIntBox(() => VisualizerWorld.AllSubRate, x => VisualizerWorld.AllSubRate = x, 3);
             asrateBox.Width = new StyleDimension(0, 0.25f);

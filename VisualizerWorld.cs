@@ -11,6 +11,19 @@ using Terraria.ModLoader;
 
 namespace TerrariaWiringVisual
 {
+    public class LightHackGlobalWall : GlobalWall
+    {
+        public override void ModifyLight(int i, int j, int type, ref float r, ref float g, ref float b)
+        {
+            if (SuspendableWireManager.Active)
+            {
+                r = MathHelper.Clamp(r + (VisualizerWorld.TileLightRate / 100f), 0, 1);
+                g = MathHelper.Clamp(g + (VisualizerWorld.TileLightRate / 100f), 0, 1);
+                b = MathHelper.Clamp(b + (VisualizerWorld.TileLightRate / 100f), 0, 1);
+            }
+        }
+    }
+
     internal class VisualizerWorld : ModSystem
     {
         private class WireSegment
@@ -64,7 +77,7 @@ namespace TerrariaWiringVisual
         public static int TailSpeedRate = 6;
         public static int TailSubRate = 90;
         public static int AllSubRate = 60;
-        public static int TileLightRate = 20;
+        public static int TileLightRate = 15;
 
         private static readonly Color ColorWRed = new Color(255, 0, 0, 128);
         private static readonly Color ColorWBlue = new Color(0, 0, 255, 128);
@@ -115,8 +128,10 @@ namespace TerrariaWiringVisual
             {
                 Main.spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.AlphaBlend);
 
-                DrawIndicators();
-                LightScreen();
+                if (!Main.hideUI)
+                {
+                    DrawIndicators();
+                }
 
                 if (SuspendableWireManager.Running || !IsWireHighlightNull)
                 {
@@ -126,21 +141,6 @@ namespace TerrariaWiringVisual
                 }
 
                 Main.spriteBatch.End();
-            }
-        }
-
-        private void LightScreen()
-        {
-            Rectangle screen = GetScreenRect();
-
-            Vector3 lightColor = new(TileLightRate / 100f, TileLightRate / 100f, TileLightRate / 100f);
-
-            for (int x = screen.Left; x < screen.Right; x++)
-            {
-                for (int y = screen.Top; y < screen.Bottom; y++)
-                {
-                    Lighting.AddLight(x, y, lightColor.X, lightColor.Y, lightColor.Z);
-                }
             }
         }
 
