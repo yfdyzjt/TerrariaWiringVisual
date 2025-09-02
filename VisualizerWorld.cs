@@ -1,7 +1,9 @@
-﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using Terraria;
 using Terraria.DataStructures;
@@ -9,7 +11,7 @@ using Terraria.GameContent;
 using Terraria.ID;
 using Terraria.ModLoader;
 
-namespace TerrariaWiringVisual
+namespace TerrariaWiringVisualCopy
 {
     public class LightHackGlobalWall : GlobalWall
     {
@@ -26,7 +28,7 @@ namespace TerrariaWiringVisual
 
     internal class VisualizerWorld : ModSystem
     {
-        private class WireSegment
+        public class WireSegment
         {
             public bool red;
             public bool blue;
@@ -67,17 +69,17 @@ namespace TerrariaWiringVisual
 
         private const int maxWireVisual = 5000;
 
-        public static bool ShowWireSkip = false;
+        public static bool ShowWireSkip = true;
         public static bool ShowGatesDone = true;
         public static bool ShowUpcomingGates = true;
-        public static bool ShowTriggeredLamps = false;
+        public static bool ShowTriggeredLamps = true;
         public static bool ShowTeleporters = true;
         public static bool ShowPumps = true;
 
         public static int TailSpeedRate = 6;
         public static int TailSubRate = 90;
-        public static int AllSubRate = 60;
-        public static int TileLightRate = 15;
+        public static int AllSubRate = 90;
+        public static int TileLightRate = 0;
 
         private static readonly Color ColorWRed = new Color(255, 0, 0, 128);
         private static readonly Color ColorWBlue = new Color(0, 0, 255, 128);
@@ -90,7 +92,7 @@ namespace TerrariaWiringVisual
         private static int yellowIterCount;
 
         private static List<Rectangle> StartHighlight;
-        private static Dictionary<Point16, WireSegment> WireHighlight;
+        public static Dictionary<Point16, WireSegment> WireHighlight;
         private static Point16 PointHighlight = Point16.Zero;
         private static Dictionary<Point16, ColoredMark> MarkCache;
 
@@ -271,6 +273,7 @@ namespace TerrariaWiringVisual
                     }
                 }
             }
+            /*
             else if (mark.mark == "X")
             {
                 Main.spriteBatch.Draw(TextureAssets.Tile[TileID.LogicGate].Value,
@@ -303,7 +306,7 @@ namespace TerrariaWiringVisual
                     }
                 }
             }
-
+            */
             /*
             Vector2 text = FontAssets.MouseText.Value.MeasureString(mark.mark);
             Vector2 loc = new Vector2(
@@ -353,7 +356,7 @@ namespace TerrariaWiringVisual
             Main.spriteBatch.Draw(pixel, new Rectangle(rect.X + rect.Width, rect.Y, borderX, rect.Height + borderX), null, color);
         }
 
-        private Rectangle GetScreenRect(Vector2 offset = default)
+        private static Rectangle GetScreenRect(Vector2 offset = default)
         {
             if (offset == default)
                 offset = Vector2.Zero;
@@ -413,6 +416,223 @@ namespace TerrariaWiringVisual
             StartHighlight?.Clear();
         }
 
+        public static void AddAllLogicGate(int centerX, int centerY)
+        {
+            var screen = GetScreenRect();
+            var processedGates = new HashSet<Point16>();
+            var foundComponentGates = new HashSet<Point16>();
+            var componentsByMinRadius = new SortedDictionary<int, List<List<Point16>>>();
+            int maxRadius = Math.Max(
+                screen.Width / 2 + Math.Abs(centerX - screen.Center.X),
+                screen.Height / 2 + Math.Abs(centerY - screen.Center.Y)
+                ) + 8;
+            for (int radius = 0; radius <= maxRadius; radius++)
+            {
+                var processedRadii = new List<int>();
+                foreach (var kvp in componentsByMinRadius.Where(kvp => kvp.Key <= radius))
+                {
+                    var largerComponents = componentsByMinRadius
+                            .Where(otherKvp => otherKvp.Key > radius)
+                            .SelectMany(otherKvp => otherKvp.Value);
+                    var processedComponents = new List<List<Point16>>();
+                    foreach (var component in kvp.Value
+                    .OrderByDescending(c => c.Count)
+                    .ThenBy(c => c[0].X != c.Last().X)
+                    .ThenBy(c => Math.Abs(c[0].X - centerX))
+                    .ThenBy(c => Math.Abs(c[0].Y - centerY)))
+                    {
+                        var gatesInLargerComponents = largerComponents
+                            .Where(c => c.Count > component.Count)
+                            .SelectMany(c => c)
+                            .ToHashSet();
+                        if (component.Any(gatesInLargerComponents.Contains)) continue;
+
+                        foreach (var gatePos in component)
+                        {
+                            if (processedGates.Add(gatePos))
+                            {
+                                AddGateToVisualizer(gatePos);
+                            }
+                        }
+                        processedComponents.Add(component);
+                    }
+                    foreach(var r in processedComponents)
+                    {
+                        kvp.Value.Remove(r);
+                    }
+                    if (kvp.Value.Count == 0) processedRadii.Add(kvp.Key);
+                }
+                foreach (var r in processedRadii)
+                {
+                    componentsByMinRadius.Remove(r);
+                }
+
+                int minX = centerX - radius;
+                int maxX = centerX + radius;
+                int minY = centerY - radius;
+                int maxY = centerY + radius;
+
+                for (int x = minX; x <= maxX; x++)
+                {
+                    ProcessTileAtForDiscovery(x, minY);
+                    if (minY != maxY) ProcessTileAtForDiscovery(x, maxY);
+                }
+                for (int y = minY; y <= maxY; y++)
+                {
+                    ProcessTileAtForDiscovery(minX, y);
+                    if (minX != maxX) ProcessTileAtForDiscovery(maxX, y);
+                }
+            }
+
+            void ProcessTileAtForDiscovery(int x, int y)
+            {
+                var position = new Point16(x, y);
+                if (!IsPotentialStartGate(position)) return;
+
+                var components = FindLogicGateComponent(position);
+
+                foreach (var component in components)
+                {
+                    int componentMinRadius = 0;
+                    foreach (var gatePos in component)
+                    {
+                        componentMinRadius = Math.Max(componentMinRadius,
+                            Math.Max(
+                                Math.Abs(gatePos.X - centerX),
+                                Math.Abs(gatePos.Y - centerY)));
+                    }
+                    if (!componentsByMinRadius.TryGetValue(componentMinRadius, out var list))
+                    {
+                        list = [];
+                        componentsByMinRadius[componentMinRadius] = list;
+                    }
+                    list.Add(component);
+                    foundComponentGates.UnionWith(component);
+                }
+            }
+
+            List<List<Point16>> FindLogicGateComponent(Point16 startPos)
+            {
+                var components = new List<List<Point16>>();
+                var foundOffsets = new List<Point16>();
+
+                int startGateType = GetLogicGateType(startPos.X, startPos.Y);
+                if (startGateType == 0) return components;
+
+                const int searchRadius = 8;
+
+                var directions = new[] { new Point16(1, 0), new Point16(0, 1), new Point16(-1, 0), new Point16(0, -1) };
+                for (int i = 1; i <= searchRadius; i++)
+                {
+                    foreach (var dir in directions)
+                    {
+                        var offsetPos = new Point16((short)(dir.X * i), (short)(dir.Y * i));
+                        var offsetCheckPos = new Point16(startPos.X + offsetPos.X, startPos.Y + offsetPos.Y);
+
+                        if (IsGateInSameComponent(offsetCheckPos, startGateType))
+                        {
+                            foundOffsets.Add(offsetPos);
+                        }
+                    }
+                }
+                if (foundOffsets.Count == 0) return components;
+
+                int Gcd(int a, int b)
+                {
+                    a = Math.Abs(a);
+                    b = Math.Abs(b);
+                    while (b != 0)
+                    {
+                        int temp = b;
+                        b = a % b;
+                        a = temp;
+                    }
+                    return a;
+                }
+
+                Point16 GetCanonicalDirection(Point16 offset)
+                {
+                    if (offset.X == 0 && offset.Y == 0)
+                        return Point16.Zero;
+                    int commonDivisor = Gcd(offset.X, offset.Y);
+                    var dx = (short)(offset.X / commonDivisor);
+                    var dy = (short)(offset.Y / commonDivisor);
+                    return new Point16(Math.Abs(dx), Math.Abs(dy));
+                }
+
+                var directionGroups = foundOffsets.GroupBy(GetCanonicalDirection);
+                foreach (var group in directionGroups)
+                {
+                    var bestComponent = new List<Point16>();
+                    foreach (var offset in group)
+                    {
+                        var component = new List<Point16> { startPos };
+                        foreach (var newOffset in new List<Point16> { offset, new((short)-offset.X, (short)-offset.Y) })
+                        {
+                            for (int i = 1; ; i++)
+                            {
+                                var curPos = new Point16(startPos.X + newOffset.X * i, startPos.Y + newOffset.Y * i);
+                                if (IsGateInSameComponent(curPos, startGateType))
+                                {
+                                    component.Add(curPos);
+                                }
+                                else
+                                {
+                                    break;
+                                }
+                            }
+                        }
+                        if (component.Count > bestComponent.Count)
+                        {
+                            bestComponent = component;
+                        }
+                    }
+                    if (bestComponent.Count > 1)
+                    {
+                        components.Add([.. bestComponent
+                            .OrderBy(p => Math.Abs(p.X - centerX))
+                            .ThenBy(p => Math.Abs(p.Y - centerY))]);
+                    }
+                }
+                return components;
+            }
+
+            bool IsPotentialStartGate(Point16 pos)
+            {
+                return IsOnScreen(pos.X, pos.Y) && IsLogicGate(pos.X, pos.Y) && !foundComponentGates.Contains(pos);
+            }
+
+            bool IsGateInSameComponent(Point16 pos, int type)
+            {
+                return IsOnScreen(pos.X, pos.Y) && GetLogicGateType(pos.X, pos.Y) == type;
+            }
+
+            void AddGateToVisualizer(Point16 pos)
+            {
+                SuspendableWireManager.BeginTripWire(pos.X, pos.Y, 1, 1);
+            }
+
+            bool IsOnScreen(int x, int y)
+            {
+                return x >= screen.Left && x < screen.Right && y >= screen.Top && y < screen.Bottom;
+            }
+
+            bool IsLogicGate(int x, int y)
+            {
+                return GetLogicGateType(x, y) != 0;
+            }
+
+            int GetLogicGateType(int x, int y)
+            {
+                Tile tile = Main.tile[x, y];
+                if (tile != null && tile.HasTile && tile.TileType == TileID.LogicGate)
+                {
+                    return tile.TileFrameX / 18 + 1;
+                }
+                return 0;
+            }
+        }
+
         public static void ResetWireSegments()
         {
             StartHighlight?.Clear();
@@ -438,27 +658,39 @@ namespace TerrariaWiringVisual
             switch (color)
             {
                 case 1:
-                    segment.red = true;
-                    segment.redLight = 1f;
-                    segment.redIter = Math.Max(segment.redIter, redIterCount);
+                    if (segment.red != true)
+                    {
+                        segment.red = true;
+                        segment.redLight = 0f;
+                        segment.redIter = redIterCount;
+                    }
                     redIterCount++;
                     break;
                 case 2:
-                    segment.blue = true;
-                    segment.blueLight = 1f;
-                    segment.blueIter = Math.Max(segment.blueIter, blueIterCount);
+                    if (segment.blue != true)
+                    {
+                        segment.blue = true;
+                        segment.blueLight = 0f;
+                        segment.blueIter = blueIterCount;
+                    }
                     blueIterCount++;
                     break;
                 case 3:
-                    segment.green = true;
-                    segment.greenLight = 1f;
-                    segment.greenIter = Math.Max(segment.greenIter, greenIterCount);
+                    if (segment.green != true)
+                    {
+                        segment.green = true;
+                        segment.greenLight = 0f;
+                        segment.greenIter = greenIterCount;
+                    }
                     greenIterCount++;
                     break;
                 case 4:
-                    segment.yellow = true;
-                    segment.yellowLight = 1f;
-                    segment.yellowIter = Math.Max(segment.yellowIter, yellowIterCount);
+                    if (segment.yellow != true)
+                    {
+                        segment.yellow = true;
+                        segment.yellowLight = 0f;
+                        segment.yellowIter = yellowIterCount;
+                    }
                     yellowIterCount++;
                     break;
             }
@@ -565,62 +797,44 @@ namespace TerrariaWiringVisual
 
         private static void WiresIter(Point16 tileLoc, WireSegment wireCur)
         {
+            var minLight = 1f;
+            var maxLight = 1.3f;
             if (wireCur.red)
             {
-                wireCur.redLight *= 1f - 1f / AllSubRate;
-
                 if (wireCur.redIter < 0)
                 {
-                    wireCur.redLight *= 1f + (float)wireCur.redIter / TailSubRate;
-                }
-                if (wireCur.redLight <= 1f / 255f)
-                {
-                    wireCur.red = false;
+                    var newLight = maxLight + (maxLight - minLight) * wireCur.redIter / TailSubRate;
+                    wireCur.redLight = Math.Max(minLight, Math.Min(maxLight, newLight));
                 }
 
                 wireCur.redIter -= TailSpeedRate;
             }
             if (wireCur.blue)
             {
-                wireCur.blueLight *= 1f - 1f / AllSubRate;
-
                 if (wireCur.blueIter < 0)
                 {
-                    wireCur.blueLight *= 1f + (float)wireCur.blueIter / TailSubRate;
-                }
-                if (wireCur.blueLight <= 1f / 255f)
-                {
-                    wireCur.blue = false;
+                    var newLight = maxLight + (maxLight - minLight) * wireCur.blueIter / TailSubRate;
+                    wireCur.blueLight = Math.Max(minLight, Math.Min(maxLight, newLight));
                 }
 
                 wireCur.blueIter -= TailSpeedRate;
             }
             if (wireCur.green)
             {
-                wireCur.greenLight *= 1f - 1f / AllSubRate;
-
                 if (wireCur.greenIter < 0)
                 {
-                    wireCur.greenLight *= 1f + (float)wireCur.greenIter / TailSubRate;
-                }
-                if (wireCur.greenLight <= 1f / 255f)
-                {
-                    wireCur.green = false;
+                    var newLight = maxLight + (maxLight - minLight) * wireCur.greenIter / TailSubRate;
+                    wireCur.greenLight = Math.Max(minLight, Math.Min(maxLight, newLight));
                 }
 
                 wireCur.greenIter -= TailSpeedRate;
             }
             if (wireCur.yellow)
             {
-                wireCur.yellowLight *= 1f - 1f / AllSubRate;
-
                 if (wireCur.yellowIter < 0)
                 {
-                    wireCur.yellowLight *= 1f + (float)wireCur.yellowIter / TailSubRate;
-                }
-                if (wireCur.yellowLight <= 1f / 255f)
-                {
-                    wireCur.yellow = false;
+                    var newLight = maxLight + (maxLight - minLight) * wireCur.yellowIter / TailSubRate;
+                    wireCur.yellowLight = Math.Max(minLight, Math.Min(maxLight, newLight));
                 }
 
                 wireCur.yellowIter -= TailSpeedRate;

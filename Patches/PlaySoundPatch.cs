@@ -2,7 +2,7 @@
 using ReLogic.Utilities;
 using Terraria.Audio;
 
-namespace TerrariaWiringVisual.Patches
+namespace TerrariaWiringVisualCopy.Patches
 {
     internal class PlaySoundPatch
     {

@@ -1,8 +1,8 @@
-﻿using Terraria;
+using Terraria;
 using Terraria.GameInput;
 using Terraria.ModLoader;
 
-namespace TerrariaWiringVisual
+namespace TerrariaWiringVisualCopy
 {
     internal class ControlPlayer : ModPlayer
     {
@@ -10,17 +10,17 @@ namespace TerrariaWiringVisual
         {
             if (Main.netMode == 0)
             {
-                if (TerrariaWiringVisual.keyStep.JustPressed)
+                if (TerrariaWiringVisualCopy.keyStep.JustPressed)
                     SuspendableWireManager.Resume();
 
-                if (TerrariaWiringVisual.keyToggle.JustPressed)
+                if (TerrariaWiringVisualCopy.keyToggle.JustPressed)
                     SuspendableWireManager.Active = !SuspendableWireManager.Active;
 
-                if (TerrariaWiringVisual.keyAutoStep.JustPressed)
+                if (TerrariaWiringVisualCopy.keyAutoStep.JustPressed)
                     AutoStepWorld.Active = !AutoStepWorld.Active;
 
-                if (TerrariaWiringVisual.keySettings.JustPressed)
-                    TerrariaWiringVisual.settingsUI.Visible = !TerrariaWiringVisual.settingsUI.Visible;
+                if (TerrariaWiringVisualCopy.keySettings.JustPressed)
+                    TerrariaWiringVisualCopy.settingsUI.Visible = !TerrariaWiringVisualCopy.settingsUI.Visible;
             }
         }
     }

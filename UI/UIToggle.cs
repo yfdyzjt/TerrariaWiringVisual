@@ -7,7 +7,7 @@ using Terraria.GameContent.UI.Elements;
 using Terraria.ID;
 using Terraria.UI;
 
-namespace TerrariaWiringVisual.UI
+namespace TerrariaWiringVisualCopy.UI
 {
     internal class UIToggle : UIText
     {

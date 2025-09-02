@@ -1,13 +1,13 @@
-﻿using TerrariaWiringVisual.Patches;
-using TerrariaWiringVisual.UI;
+using TerrariaWiringVisualCopy.Patches;
+using TerrariaWiringVisualCopy.UI;
 using System.Collections.Generic;
 using Terraria;
 using Terraria.ModLoader;
 using Terraria.UI;
 
-namespace TerrariaWiringVisual
+namespace TerrariaWiringVisualCopy
 {
-    public class TerrariaWiringVisual : Mod
+    public class TerrariaWiringVisualCopy : Mod
     {
         public static ModKeybind keyToggle;
         public static ModKeybind keyStep;
@@ -18,7 +18,7 @@ namespace TerrariaWiringVisual
 
         private static UserInterface userInterface;
 
-        public TerrariaWiringVisual()
+        public TerrariaWiringVisualCopy()
         {
             //Properties = new ModProperties()
             //{
@@ -48,7 +48,7 @@ namespace TerrariaWiringVisual
                 userInterface = new UserInterface();
                 userInterface.SetState(settingsUI);
                 settingsUI.Activate();
-                UILayer = new LegacyGameInterfaceLayer("TerrariaWiringVisual: Settings menu",
+                UILayer = new LegacyGameInterfaceLayer("TerrariaWiringVisualCopy: Settings menu",
                     delegate
                     {
                         if (settingsUI.Visible)
@@ -73,18 +73,18 @@ namespace TerrariaWiringVisual
             UILayer = null;
         }
     }
-    public class TerrariaWiringVisualModSystem : ModSystem
+    public class TerrariaWiringVisualCopyModSystem : ModSystem
     {
         public override void PreSaveAndQuit()
         {
             SuspendableWireManager.Active = false;
-            TerrariaWiringVisual.settingsUI.Visible = false;
+            TerrariaWiringVisualCopy.settingsUI.Visible = false;
         }
 
         public override void ModifyInterfaceLayers(List<GameInterfaceLayer> layers)
         {
             int index = layers.FindIndex(x => x.Name == "Vanilla: Inventory");
-            layers.Insert(index + 1, TerrariaWiringVisual.UILayer);
+            layers.Insert(index + 1, TerrariaWiringVisualCopy.UILayer);
         }
     }
 }

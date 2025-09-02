@@ -1,7 +1,7 @@
 ﻿using Terraria;
 using Terraria.ModLoader;
 
-namespace TerrariaWiringVisual
+namespace TerrariaWiringVisualCopy
 {
     internal class ConfigCommand : ModCommand
     {
@@ -20,7 +20,7 @@ namespace TerrariaWiringVisual
             }
         }
 
-        public override string Description { get { return "Sets various settings for TerrariaWiringVisual"; } }
+        public override string Description { get { return "Sets various settings for TerrariaWiringVisualCopy"; } }
 
         public override void Action(CommandCaller caller, string input, string[] args)
         {

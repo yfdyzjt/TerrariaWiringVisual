@@ -2,7 +2,7 @@
 using MonoMod.Cil;
 using Terraria;
 
-namespace TerrariaWiringVisual.Patches
+namespace TerrariaWiringVisualCopy.Patches
 {
     internal class LogicGatePassPatch
     {

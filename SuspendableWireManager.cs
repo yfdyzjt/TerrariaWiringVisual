@@ -6,7 +6,7 @@ using System.Threading;
 using Terraria;
 using Terraria.Utilities;
 
-namespace TerrariaWiringVisual
+namespace TerrariaWiringVisualCopy
 {
     internal static class SuspendableWireManager
     {
@@ -19,7 +19,7 @@ namespace TerrariaWiringVisual
         }
 
         private const string wireThreadName = "wireThread";
-        private const int maxQueuedTrips = 100;
+        private const int maxQueuedTrips = 100000;
 
         public static bool Running { get; private set; }
         public static bool Active
@@ -107,6 +107,16 @@ namespace TerrariaWiringVisual
             while (!Running && queuedWireTrips.Count > 0)
             {
                 Rectangle trip = queuedWireTrips.Dequeue();
+
+                if (VisualizerWorld.WireHighlight.TryGetValue(new Terraria.DataStructures.Point16(trip.X, trip.Y), out var wire))
+                {
+                    if (wire.red == Main.tile[trip.X, trip.Y].RedWire &&
+                        wire.blue == Main.tile[trip.X, trip.Y].BlueWire &&
+                        wire.green == Main.tile[trip.X, trip.Y].GreenWire &&
+                        wire.yellow == Main.tile[trip.X, trip.Y].YellowWire)
+                        continue;
+                }
+
                 BeginTripWire(trip.X, trip.Y, trip.Width, trip.Height);
             }
         }

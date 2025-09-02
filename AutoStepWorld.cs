@@ -1,11 +1,11 @@
 ﻿using Terraria.ModLoader;
 
-namespace TerrariaWiringVisual
+namespace TerrariaWiringVisualCopy
 {
     internal class AutoStepWorld : ModSystem
     {
         public static bool Active = false;
-        public static int Rate = 30;
+        public static int Rate = 1;
 
         private static int count = 0;
 

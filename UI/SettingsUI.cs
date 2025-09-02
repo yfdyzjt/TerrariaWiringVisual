@@ -3,7 +3,7 @@ using Terraria;
 using Terraria.GameContent.UI.Elements;
 using Terraria.UI;
 
-namespace TerrariaWiringVisual.UI
+namespace TerrariaWiringVisualCopy.UI
 {
     public class SettingsUI : UIState
     {
@@ -40,7 +40,7 @@ namespace TerrariaWiringVisual.UI
             UIElement[] elements = new UIElement[]
             {
                 null,
-                new UIText("TerrariaWiringVisual Settings"),
+                new UIText("TerrariaWiringVisualCopy Settings"),
                 null,
                 new UIText("Set mode:"),
                 new UIToggle("Single", () => SuspendableWireManager.Mode == SuspendableWireManager.SuspendMode.perSingle, () => SuspendableWireManager.Mode = SuspendableWireManager.SuspendMode.perSingle),

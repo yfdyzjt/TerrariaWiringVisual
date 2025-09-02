@@ -2,7 +2,7 @@
 using System;
 using Terraria.GameContent.UI.Elements;
 
-namespace TerrariaWiringVisual.UI
+namespace TerrariaWiringVisualCopy.UI
 {
     internal class UIAutoText : UIText
     {

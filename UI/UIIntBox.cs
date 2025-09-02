@@ -8,7 +8,7 @@ using Terraria.GameInput;
 using Terraria.ID;
 using Terraria.UI;
 
-namespace TerrariaWiringVisual.UI
+namespace TerrariaWiringVisualCopy.UI
 {
     internal class UIIntBox : UITextPanel<string>
     {

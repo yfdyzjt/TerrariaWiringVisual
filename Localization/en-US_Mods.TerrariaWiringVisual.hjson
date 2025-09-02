@@ -4,3 +4,43 @@ Keybinds: {
 	"Auto step.DisplayName": Auto step
 	Settings.DisplayName: Settings
 }
+
+opy: {
+	Keybinds: {
+		Toggle: {
+			DisplayName: {
+				$parentVal: Toggle
+			}
+		}
+
+		Step: {
+			DisplayName: {
+				$parentVal: Step
+			}
+		}
+
+		"Auto step": {
+			DisplayName: {
+				$parentVal: Auto step
+			}
+		}
+
+		Settings: {
+			DisplayName: {
+				$parentVal: Settings
+			}
+		}
+	}
+
+	Items: {
+		FoundWiring: {
+			DisplayName: {
+				$parentVal: Found Wiring
+			}
+
+			Tooltip: {
+				$parentVal: ""
+			}
+		}
+	}
+}
