@@ -423,7 +423,8 @@ namespace TerrariaWiringVisualCopy
 
             var screen = GetScreenRect();
             var foundComponentGates = new HashSet<Point16>();
-            var allComponents = new List<List<Point16>>();
+            var atomicComponents = new List<List<Point16>>();
+
             for (int x = screen.Left - extraRadius; x < screen.Right + extraRadius; x++)
             {
                 for (int y = screen.Top - extraRadius; y < screen.Bottom + extraRadius; y++)
@@ -432,54 +433,82 @@ namespace TerrariaWiringVisualCopy
                 }
             }
 
+            var componentGroups = atomicComponents.Select(c => new List<List<Point16>> { c }).ToList();
 
             bool changed = true;
             while (changed)
             {
                 changed = false;
-                for (int i = 0; i < allComponents.Count && !changed; i++)
+                for (int i = 0; i < componentGroups.Count; i++)
                 {
-                    for (int j = i + 1; j < allComponents.Count; j++)
+                    for (int j = i + 1; j < componentGroups.Count; j++)
                     {
-                        var c1 = allComponents[i];
-                        var c2 = allComponents[j];
+                        var group1 = componentGroups[i];
+                        var group2 = componentGroups[j];
 
-                        if (c1.Count != c2.Count || c1.Count == 0) continue;
+                        if (group1[0].Count != group2[0].Count) goto next_component;
 
-                        var offset = new Point16((short)(c2[0].X - c1[0].X), (short)(c2[0].Y - c1[0].Y));
+                        var smallerGroup = group1.Count <= group2.Count ? group1 : group2;
+                        var largerGroup = group1.Count <= group2.Count ? group2 : group1;
 
-                        if (Math.Abs(offset.X) > searchRadius || Math.Abs(offset.Y) > searchRadius) continue;
+                        var componentLinks = new Dictionary<List<Point16>, (List<Point16> component, Point16 offset)>();
 
-                        bool consistent = true;
-                        for (int k = 1; k < c1.Count; k++)
+                        foreach (var smallerComponent in smallerGroup)
                         {
-                            if (c2[k].X - c1[k].X != offset.X || c2[k].Y - c1[k].Y != offset.Y)
+                            var minDist = int.MaxValue;
+                            var minComponent = new List<Point16>();
+                            var minOffset = new Point16(short.MaxValue, short.MaxValue);
+
+                            foreach (var largerComponent in largerGroup)
                             {
-                                consistent = false;
-                                break;
+                                var offset = new Point16(
+                                    smallerComponent[0].X - largerComponent[0].X,
+                                    smallerComponent[0].Y - largerComponent[0].Y);
+                                var dist = Math.Abs(offset.X) + Math.Abs(offset.Y);
+                                if (dist < minDist)
+                                {
+                                    minDist = dist;
+                                    minComponent = largerComponent;
+                                    minOffset = offset;
+                                }
+                            }
+
+                            if (Math.Abs(minOffset.X) > searchRadius || Math.Abs(minOffset.Y) > searchRadius) goto next_component;
+
+                            componentLinks.Add(smallerComponent, (minComponent, minOffset));
+                        }
+
+                        foreach (var componentLink in componentLinks)
+                        {
+                            var smallerComponent = componentLink.Key;
+                            var largerComponent = componentLink.Value.component;
+                            var offset = componentLink.Value.offset;
+                            for (int k = 1; k < smallerComponent.Count; k++)
+                            {
+                                var smallerPos = smallerComponent[k];
+                                var largerPos = largerComponent[k];
+                                if (smallerPos.X - largerPos.X != offset.X || smallerPos.Y - largerPos.Y != offset.Y) goto next_component;
                             }
                         }
 
-                        if (consistent)
-                        {
-                            var mergedComponent = c1.Concat(c2).ToList();
-                            mergedComponent.Sort((p1, p2) => (p1.X != p2.X) ? p1.X.CompareTo(p2.X) : p1.Y.CompareTo(p2.Y));
+                        var mergedGroup = new List<List<Point16>>(group1);
+                        mergedGroup.AddRange(group2);
 
-                            allComponents[i] = mergedComponent;
-                            allComponents.RemoveAt(j);
+                        componentGroups[i] = mergedGroup;
+                        componentGroups.RemoveAt(j);
+                        changed = true;
+                        j--;
 
-                            changed = true;
-                            break;
-                        }
+                    next_component:;
                     }
                 }
             }
 
-            var finalComponents = new List<List<Point16>>();
-            allComponents = [.. allComponents.OrderByDescending(c => c.Count)];
-
             var processedGates = new HashSet<Point16>();
-            foreach (var component in allComponents)
+            var finalComponents = new List<List<Point16>>();
+            foreach (var component in componentGroups
+                .SelectMany(group => group)
+                .OrderByDescending(c => c.Count))
             {
                 var prunedComponent = new List<Point16>();
                 foreach (var gate in component)
@@ -497,7 +526,22 @@ namespace TerrariaWiringVisualCopy
                 }
             }
 
-            foreach (var component in finalComponents)
+            var sortedComponents = finalComponents
+                .OrderBy(component =>
+                {
+                    int maxDist = 0;
+                    int minDist = int.MaxValue;
+                    foreach (var gate in component)
+                    {
+                        int dx = Math.Abs(gate.X - center.X);
+                        int dy = Math.Abs(gate.Y - center.Y);
+                        maxDist = Math.Max(maxDist, Math.Max(dx, dy));
+                        minDist = Math.Min(minDist, Math.Max(dx, dy));
+                    }
+                    return (minDist + maxDist) / 2;
+                }).ToList();
+
+            foreach (var component in sortedComponents)
             {
                 foreach (var gate in component)
                 {
@@ -513,7 +557,7 @@ namespace TerrariaWiringVisualCopy
 
                 foreach (var component in components)
                 {
-                    allComponents.Add(component);
+                    atomicComponents.Add(component);
                     foundComponentGates.UnionWith(component);
                 }
             }
