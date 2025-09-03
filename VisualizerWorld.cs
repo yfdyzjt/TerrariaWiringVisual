@@ -416,97 +416,104 @@ namespace TerrariaWiringVisualCopy
             StartHighlight?.Clear();
         }
 
-        public static void AddAllLogicGate(int centerX, int centerY)
+        public static void AddAllLogicGate(Point16 center)
         {
+            const int extraRadius = 4;
+            const int searchRadius = 8;
+
             var screen = GetScreenRect();
-            var processedGates = new HashSet<Point16>();
             var foundComponentGates = new HashSet<Point16>();
-            var componentsByMinRadius = new SortedDictionary<int, List<List<Point16>>>();
-            int maxRadius = Math.Max(
-                screen.Width / 2 + Math.Abs(centerX - screen.Center.X),
-                screen.Height / 2 + Math.Abs(centerY - screen.Center.Y)
-                ) + 8;
-            for (int radius = 0; radius <= maxRadius; radius++)
+            var allComponents = new List<List<Point16>>();
+            for (int x = screen.Left - extraRadius; x < screen.Right + extraRadius; x++)
             {
-                var processedRadii = new List<int>();
-                foreach (var kvp in componentsByMinRadius.Where(kvp => kvp.Key <= radius))
+                for (int y = screen.Top - extraRadius; y < screen.Bottom + extraRadius; y++)
                 {
-                    var largerComponents = componentsByMinRadius
-                            .Where(otherKvp => otherKvp.Key > radius)
-                            .SelectMany(otherKvp => otherKvp.Value);
-                    var processedComponents = new List<List<Point16>>();
-                    foreach (var component in kvp.Value
-                    .OrderByDescending(c => c.Count)
-                    .ThenBy(c => c[0].X != c.Last().X)
-                    .ThenBy(c => Math.Abs(c[0].X - centerX))
-                    .ThenBy(c => Math.Abs(c[0].Y - centerY)))
-                    {
-                        var gatesInLargerComponents = largerComponents
-                            .Where(c => c.Count > component.Count)
-                            .SelectMany(c => c)
-                            .ToHashSet();
-                        if (component.Any(gatesInLargerComponents.Contains)) continue;
-
-                        foreach (var gatePos in component)
-                        {
-                            if (processedGates.Add(gatePos))
-                            {
-                                AddGateToVisualizer(gatePos);
-                            }
-                        }
-                        processedComponents.Add(component);
-                    }
-                    foreach(var r in processedComponents)
-                    {
-                        kvp.Value.Remove(r);
-                    }
-                    if (kvp.Value.Count == 0) processedRadii.Add(kvp.Key);
-                }
-                foreach (var r in processedRadii)
-                {
-                    componentsByMinRadius.Remove(r);
-                }
-
-                int minX = centerX - radius;
-                int maxX = centerX + radius;
-                int minY = centerY - radius;
-                int maxY = centerY + radius;
-
-                for (int x = minX; x <= maxX; x++)
-                {
-                    ProcessTileAtForDiscovery(x, minY);
-                    if (minY != maxY) ProcessTileAtForDiscovery(x, maxY);
-                }
-                for (int y = minY; y <= maxY; y++)
-                {
-                    ProcessTileAtForDiscovery(minX, y);
-                    if (minX != maxX) ProcessTileAtForDiscovery(maxX, y);
+                    ProcessTileAtForDiscovery(new Point16(x, y));
                 }
             }
 
-            void ProcessTileAtForDiscovery(int x, int y)
+
+            bool changed = true;
+            while (changed)
             {
-                var position = new Point16(x, y);
+                changed = false;
+                for (int i = 0; i < allComponents.Count && !changed; i++)
+                {
+                    for (int j = i + 1; j < allComponents.Count; j++)
+                    {
+                        var c1 = allComponents[i];
+                        var c2 = allComponents[j];
+
+                        if (c1.Count != c2.Count || c1.Count == 0) continue;
+
+                        var offset = new Point16((short)(c2[0].X - c1[0].X), (short)(c2[0].Y - c1[0].Y));
+
+                        if (Math.Abs(offset.X) > searchRadius || Math.Abs(offset.Y) > searchRadius) continue;
+
+                        bool consistent = true;
+                        for (int k = 1; k < c1.Count; k++)
+                        {
+                            if (c2[k].X - c1[k].X != offset.X || c2[k].Y - c1[k].Y != offset.Y)
+                            {
+                                consistent = false;
+                                break;
+                            }
+                        }
+
+                        if (consistent)
+                        {
+                            var mergedComponent = c1.Concat(c2).ToList();
+                            mergedComponent.Sort((p1, p2) => (p1.X != p2.X) ? p1.X.CompareTo(p2.X) : p1.Y.CompareTo(p2.Y));
+
+                            allComponents[i] = mergedComponent;
+                            allComponents.RemoveAt(j);
+
+                            changed = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            var finalComponents = new List<List<Point16>>();
+            allComponents = [.. allComponents.OrderByDescending(c => c.Count)];
+
+            var processedGates = new HashSet<Point16>();
+            foreach (var component in allComponents)
+            {
+                var prunedComponent = new List<Point16>();
+                foreach (var gate in component)
+                {
+                    if (processedGates.Add(gate))
+                    {
+                        prunedComponent.Add(gate);
+                    }
+                }
+
+                if (prunedComponent.Count > 0)
+                {
+                    prunedComponent.Sort((p1, p2) => (p1.X != p2.X) ? p1.X.CompareTo(p2.X) : p1.Y.CompareTo(p2.Y));
+                    finalComponents.Add(prunedComponent);
+                }
+            }
+
+            foreach (var component in finalComponents)
+            {
+                foreach (var gate in component)
+                {
+                    AddGateToVisualizer(gate);
+                }
+            }
+
+            void ProcessTileAtForDiscovery(Point16 position)
+            {
                 if (!IsPotentialStartGate(position)) return;
 
                 var components = FindLogicGateComponent(position);
 
                 foreach (var component in components)
                 {
-                    int componentMinRadius = 0;
-                    foreach (var gatePos in component)
-                    {
-                        componentMinRadius = Math.Max(componentMinRadius,
-                            Math.Max(
-                                Math.Abs(gatePos.X - centerX),
-                                Math.Abs(gatePos.Y - centerY)));
-                    }
-                    if (!componentsByMinRadius.TryGetValue(componentMinRadius, out var list))
-                    {
-                        list = [];
-                        componentsByMinRadius[componentMinRadius] = list;
-                    }
-                    list.Add(component);
+                    allComponents.Add(component);
                     foundComponentGates.UnionWith(component);
                 }
             }
@@ -514,12 +521,10 @@ namespace TerrariaWiringVisualCopy
             List<List<Point16>> FindLogicGateComponent(Point16 startPos)
             {
                 var components = new List<List<Point16>>();
-                var foundOffsets = new List<Point16>();
+                var foundOffsets = new HashSet<Point16>();
 
-                int startGateType = GetLogicGateType(startPos.X, startPos.Y);
+                int startGateType = GetLogicGateType(startPos);
                 if (startGateType == 0) return components;
-
-                const int searchRadius = 8;
 
                 var directions = new[] { new Point16(1, 0), new Point16(0, 1), new Point16(-1, 0), new Point16(0, -1) };
                 for (int i = 1; i <= searchRadius; i++)
@@ -531,7 +536,7 @@ namespace TerrariaWiringVisualCopy
 
                         if (IsGateInSameComponent(offsetCheckPos, startGateType))
                         {
-                            foundOffsets.Add(offsetPos);
+                            foundOffsets.Add(new Point16(Math.Abs(offsetPos.X), Math.Abs(offsetPos.Y)));
                         }
                     }
                 }
@@ -590,8 +595,8 @@ namespace TerrariaWiringVisualCopy
                     if (bestComponent.Count > 1)
                     {
                         components.Add([.. bestComponent
-                            .OrderBy(p => Math.Abs(p.X - centerX))
-                            .ThenBy(p => Math.Abs(p.Y - centerY))]);
+                            .OrderBy(p => p.X)
+                            .ThenBy(p => p.Y)]);
                     }
                 }
                 return components;
@@ -599,12 +604,12 @@ namespace TerrariaWiringVisualCopy
 
             bool IsPotentialStartGate(Point16 pos)
             {
-                return IsOnScreen(pos.X, pos.Y) && IsLogicGate(pos.X, pos.Y) && !foundComponentGates.Contains(pos);
+                return IsOnScreen(pos) && IsLogicGate(pos) && !foundComponentGates.Contains(pos);
             }
 
             bool IsGateInSameComponent(Point16 pos, int type)
             {
-                return IsOnScreen(pos.X, pos.Y) && GetLogicGateType(pos.X, pos.Y) == type;
+                return IsOnScreen(pos) && GetLogicGateType(pos) == type;
             }
 
             void AddGateToVisualizer(Point16 pos)
@@ -612,19 +617,19 @@ namespace TerrariaWiringVisualCopy
                 SuspendableWireManager.BeginTripWire(pos.X, pos.Y, 1, 1);
             }
 
-            bool IsOnScreen(int x, int y)
+            bool IsOnScreen(Point16 pos)
             {
-                return x >= screen.Left && x < screen.Right && y >= screen.Top && y < screen.Bottom;
+                return pos.X >= screen.Left && pos.X < screen.Right && pos.Y >= screen.Top && pos.Y < screen.Bottom;
             }
 
-            bool IsLogicGate(int x, int y)
+            bool IsLogicGate(Point16 pos)
             {
-                return GetLogicGateType(x, y) != 0;
+                return GetLogicGateType(pos) != 0;
             }
 
-            int GetLogicGateType(int x, int y)
+            int GetLogicGateType(Point16 pos)
             {
-                Tile tile = Main.tile[x, y];
+                Tile tile = Main.tile[pos];
                 if (tile != null && tile.HasTile && tile.TileType == TileID.LogicGate)
                 {
                     return tile.TileFrameX / 18 + 1;

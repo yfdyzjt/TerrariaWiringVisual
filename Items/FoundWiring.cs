@@ -1,6 +1,7 @@
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
+using Terraria.DataStructures;
 
 namespace TerrariaWiringVisualCopy.Items
 {
@@ -22,8 +23,7 @@ namespace TerrariaWiringVisualCopy.Items
 
         public override bool? UseItem(Player player)
         {
-            var (x, y) = (Player.tileTargetX, Player.tileTargetY);
-            VisualizerWorld.AddAllLogicGate(x, y);
+            VisualizerWorld.AddAllLogicGate(new Point16(Player.tileTargetX, Player.tileTargetY));
             return true;
         }
     }
