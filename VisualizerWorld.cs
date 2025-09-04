@@ -529,7 +529,9 @@ namespace TerrariaWiringVisualCopy
 
                 if (prunedComponent.Count > 0)
                 {
-                    prunedComponent.Sort((p1, p2) => (p1.X != p2.X) ? p1.X.CompareTo(p2.X) : p1.Y.CompareTo(p2.Y));
+                    prunedComponent.Sort((p1, p2) => (p1.X != p2.X) ?
+                        Math.Abs(p1.X - center.X).CompareTo(Math.Abs(p2.X - center.X)) :
+                        Math.Abs(p1.Y - center.Y).CompareTo(Math.Abs(p2.Y - center.Y)));
                     finalComponents.Add(prunedComponent);
                 }
             }
@@ -538,15 +540,15 @@ namespace TerrariaWiringVisualCopy
                 .OrderBy(component =>
                 {
                     int maxDist = 0;
-                    int minDist = int.MaxValue;
+                    // int minDist = int.MaxValue;
                     foreach (var gate in component)
                     {
                         int dx = Math.Abs(gate.X - center.X);
                         int dy = Math.Abs(gate.Y - center.Y);
                         maxDist = Math.Max(maxDist, Math.Max(dx, dy));
-                        minDist = Math.Min(minDist, Math.Max(dx, dy));
+                        // minDist = Math.Min(minDist, Math.Max(dx, dy));
                     }
-                    return (minDist + maxDist) / 2;
+                    return maxDist; // (minDist + maxDist) / 2;
                 }).ToList();
 
             foreach (var component in sortedComponents)
