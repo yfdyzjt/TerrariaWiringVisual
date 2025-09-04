@@ -420,6 +420,7 @@ namespace TerrariaWiringVisualCopy
         {
             const int extraRadius = 4;
             const int searchRadius = 8;
+            const int maxComponentCountGap = 2;
 
             var screen = GetScreenRect();
             var foundComponentGates = new HashSet<Point16>();
@@ -446,7 +447,15 @@ namespace TerrariaWiringVisualCopy
                         var group1 = componentGroups[i];
                         var group2 = componentGroups[j];
 
-                        if (group1[0].Count != group2[0].Count) goto next_component;
+                        var minCount = int.MaxValue;
+                        var maxCount = int.MinValue;
+                        foreach (var c in group1.Concat(group2))
+                        {
+                            minCount = Math.Min(minCount, c.Count);
+                            maxCount = Math.Max(maxCount, c.Count);
+                        }
+                        if (minCount <= 1) goto next_component;
+                        if (maxCount - minCount > maxComponentCountGap) goto next_component;
 
                         var smallerGroup = group1.Count <= group2.Count ? group1 : group2;
                         var largerGroup = group1.Count <= group2.Count ? group2 : group1;
@@ -483,7 +492,7 @@ namespace TerrariaWiringVisualCopy
                             var smallerComponent = componentLink.Key;
                             var largerComponent = componentLink.Value.component;
                             var offset = componentLink.Value.offset;
-                            for (int k = 1; k < smallerComponent.Count; k++)
+                            for (int k = 0; k < Math.Min(smallerComponent.Count, largerComponent.Count); k++)
                             {
                                 var smallerPos = smallerComponent[k];
                                 var largerPos = largerComponent[k];
@@ -503,12 +512,11 @@ namespace TerrariaWiringVisualCopy
                     }
                 }
             }
+            var allComponents = componentGroups.Select(group => group.SelectMany(component => component).ToList());
 
             var processedGates = new HashSet<Point16>();
             var finalComponents = new List<List<Point16>>();
-            foreach (var component in componentGroups
-                .Select(group => group.SelectMany(component => component).ToList())
-                .OrderByDescending(c => c.Count))
+            foreach (var component in allComponents.OrderByDescending(c => c.Count))
             {
                 var prunedComponent = new List<Point16>();
                 foreach (var gate in component)
