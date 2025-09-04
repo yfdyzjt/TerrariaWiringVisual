@@ -536,20 +536,45 @@ namespace TerrariaWiringVisualCopy
                 }
             }
 
-            var sortedComponents = finalComponents
-                .OrderBy(component =>
+            double MinDistBetween(List<Point16> comp1, List<Point16> comp2)
+            {
+                var c1X = (comp1.Min(p => p.X) + comp1.Max(p => p.X)) / 2;
+                var c1Y = (comp1.Min(p => p.Y) + comp1.Max(p => p.Y)) / 2;
+
+                var c2X = (comp2.Min(p => p.X) + comp2.Max(p => p.X)) / 2;
+                var c2Y = (comp2.Min(p => p.Y) + comp2.Max(p => p.Y)) / 2;
+
+                return Math.Sqrt(Math.Pow(c1X - c2X, 2) + Math.Pow(c1Y - c2Y, 2));
+            }
+
+            var sortedComponents = new List<List<Point16>>();
+            if (finalComponents.Count != 0)
+            {
+                var unprocessed = finalComponents.Select(c => new
                 {
-                    int maxDist = 0;
-                    // int minDist = int.MaxValue;
-                    foreach (var gate in component)
-                    {
-                        int dx = Math.Abs(gate.X - center.X);
-                        int dy = Math.Abs(gate.Y - center.Y);
-                        maxDist = Math.Max(maxDist, Math.Max(dx, dy));
-                        // minDist = Math.Min(minDist, Math.Max(dx, dy));
-                    }
-                    return maxDist; // (minDist + maxDist) / 2;
+                    Component = c,
+                    MinDistToCenter = (c.Min(p => Math.Max(Math.Abs(p.X - center.X), Math.Abs(p.Y - center.Y))) +
+                    c.Max(p => Math.Max(Math.Abs(p.X - center.X), Math.Abs(p.Y - center.Y)))) / 2
                 }).ToList();
+
+                var currentInfo = unprocessed.OrderBy(info => info.MinDistToCenter).First();
+                unprocessed.Remove(currentInfo);
+                sortedComponents.Add(currentInfo.Component);
+
+                while (unprocessed.Count != 0)
+                {
+                    var lastAddedInfo = currentInfo;
+                    currentInfo = unprocessed.OrderBy(candidateInfo =>
+                    {
+                        var distBetween = MinDistBetween(lastAddedInfo.Component, candidateInfo.Component);
+                        var deltaDistCenter = candidateInfo.MinDistToCenter - lastAddedInfo.MinDistToCenter;
+                        return distBetween + deltaDistCenter;
+                    }).First();
+
+                    unprocessed.Remove(currentInfo);
+                    sortedComponents.Add(currentInfo.Component);
+                }
+            }
 
             foreach (var component in sortedComponents)
             {
