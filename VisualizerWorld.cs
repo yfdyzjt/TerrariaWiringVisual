@@ -535,8 +535,8 @@ namespace TerrariaWiringVisualCopy
                     {
                         int dx = Math.Abs(gate.X - center.X);
                         int dy = Math.Abs(gate.Y - center.Y);
-                        maxDist = Math.Max(maxDist, Math.Min(dx, dy));
-                        minDist = Math.Min(minDist, Math.Min(dx, dy));
+                        maxDist = Math.Max(maxDist, Math.Max(dx, dy));
+                        minDist = Math.Min(minDist, Math.Max(dx, dy));
                     }
                     return (minDist + maxDist) / 2;
                 }).ToList();
