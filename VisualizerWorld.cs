@@ -507,7 +507,7 @@ namespace TerrariaWiringVisualCopy
             var processedGates = new HashSet<Point16>();
             var finalComponents = new List<List<Point16>>();
             foreach (var component in componentGroups
-                .SelectMany(group => group)
+                .Select(group => group.SelectMany(component => component).ToList())
                 .OrderByDescending(c => c.Count))
             {
                 var prunedComponent = new List<Point16>();
@@ -535,8 +535,8 @@ namespace TerrariaWiringVisualCopy
                     {
                         int dx = Math.Abs(gate.X - center.X);
                         int dy = Math.Abs(gate.Y - center.Y);
-                        maxDist = Math.Max(maxDist, Math.Max(dx, dy));
-                        minDist = Math.Min(minDist, Math.Max(dx, dy));
+                        maxDist = Math.Max(maxDist, Math.Min(dx, dy));
+                        minDist = Math.Min(minDist, Math.Min(dx, dy));
                     }
                     return (minDist + maxDist) / 2;
                 }).ToList();
